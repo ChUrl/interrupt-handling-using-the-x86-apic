@@ -1,0 +1,440 @@
+\chapter{Tables}
+\label{ch:tables}
+
+This section lists all the registers and structures required to follow \autoref{ch:implementation}.
+
+\clearpage
+
+\renewcommand{\arraystretch}{1.2}
+
+\section{Local APIC Registers}
+\label{sec:localapicregisters}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Register Name}              & \textbf{Memory Offset} \\ \hline\hline
+    Local APIC ID Register              & 0x20                   \\ \hline
+    Local APIC Version Register         & 0x30                   \\ \hline
+    Task Priority Register              & 0x80                   \\ \hline
+    EOI Register                        & 0xB0                   \\ \hline
+    Spurious Interrupt Vector Register  & 0xF0                   \\ \hline
+    Error Status Register               & 0x280                  \\ \hline
+    Interrupt Command Register[0:31]    & 0x300                  \\ \hline
+    Interrupt Command Register[32:63]   & 0x310                  \\ \hline
+    LVT Timer Register                  & 0x320                  \\ \hline
+    LVT LINT1 Register                  & 0x360                  \\ \hline
+    LVT Error Register                  & 0x370                  \\ \hline
+    Timer Initial Count Register        & 0x380                  \\ \hline
+    Timer Divide Configuration Register & 0x3E0                  \\ \hline
+  \end{tabularx}
+  \caption{Local APIC Registers used in this Implementation~\cite[sec.~3.11.4.1]{ia32}.}
+  \label{tab:lapicregs}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description} \\ \hline\hline
+    0:23                & Reserved             \\ \hline
+    24:31               & Local APIC ID        \\ \hline
+  \end{tabularx}
+  \caption{Local APIC ID Register (xApic since Pentium 4)~\cite[sec.~3.11.4.6]{ia32}.}
+  \label{tab:lapicregsid}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description}              \\ \hline\hline
+    0:7                 & Local APIC Version                \\ \hline
+    8:15                & Reserved                          \\ \hline
+    16:23               & Max LVT Entry                     \\ \hline
+    24                  & EOI Broadcast Suppression Support \\ \hline
+    25:31               & Reserved                          \\ \hline
+  \end{tabularx}
+  \caption{Local APIC Version Register~\cite[sec.~3.11.4.8]{ia32}.}
+  \label{tab:lapicregsver}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description}   \\ \hline\hline
+    0:3                 & Task-Priority Subclass \\ \hline
+    4:7                 & Task-Priority Class    \\ \hline
+    8:31                & Reserved               \\ \hline
+  \end{tabularx}
+  \caption{Task Priority Register~\cite[sec.~3.11.8.3.1]{ia32}.}
+  \label{tab:lapicregstpr}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description} \\ \hline\hline
+    0:31                & Send EOI Signal      \\ \hline
+  \end{tabularx}
+  \caption{Local APIC EOI Register~\cite[sec.~3.11.8.5]{ia32}.}
+  \label{tab:lapicregseoi}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description}         \\ \hline\hline
+    0:7                 & Spurious Interrupt Vector    \\ \hline
+    8                   & APIC Software Enable/Disable \\ \hline
+    9                   & Focus Processor Checking     \\ \hline
+    10:11               & Reserved                     \\ \hline
+    12                  & EOI Broadcast Suppression    \\ \hline
+    13:31               & Reserved                     \\ \hline
+  \end{tabularx}
+  \caption{Spurious Interrupt Vector Register~\cite[sec.~3.11.9]{ia32}.}
+  \label{tab:lapicregssvr}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description}    \\ \hline\hline
+    0:4                 & Reserved                \\ \hline
+    5                   & Send Illegal Vector     \\ \hline
+    6                   & Receive Illegal Vector  \\ \hline
+    7                   & Illegal Register Access \\ \hline
+    8:31                & Reserved                \\ \hline
+  \end{tabularx}
+  \caption{Error Status Register (Pentium 4)~\cite[sec.~3.11.5.3]{ia32}.}
+  \label{tab:lapicregsesr}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description}  \\ \hline\hline
+    0:7                 & Interrupt Vector      \\ \hline
+    8:10                & Delivery Mode         \\ \hline
+    11                  & Destination Mode      \\ \hline
+    12                  & Delivery Status       \\ \hline
+    13                  & Reserved              \\ \hline
+    14                  & Level                 \\ \hline
+    15                  & Trigger Mode          \\ \hline
+    16:17               & Reserved              \\ \hline
+    18:19               & Destination Shorthand \\ \hline
+    20:55               & Reserved              \\ \hline
+    56:63               & Destination Field     \\ \hline
+  \end{tabularx}
+  \caption{Interrupt Command Register~\cite[sec.~3.11.6.1]{ia32}.}
+  \label{tab:lapicregsicr}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description} \\ \hline\hline
+    0:7                 & Interrupt Vector     \\ \hline
+    8:11                & Reserved             \\ \hline
+    12                  & Delivery Status      \\ \hline
+    13:15               & Reserved             \\ \hline
+    16                  & Masked               \\ \hline
+    17:18               & Timer Mode           \\ \hline
+    19:31               & Reserved             \\ \hline
+  \end{tabularx}
+  \caption{LVT Timer Register~\cite[sec.~3.11.5.1]{ia32}.}
+  \label{tab:lapicregslvtt}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description} \\ \hline\hline
+    0:7                 & Interrupt Vector     \\ \hline
+    8:11                & Reserved             \\ \hline
+    12                  & Delivery Status      \\ \hline
+    13:15               & Reserved             \\ \hline
+    16                  & Masked               \\ \hline
+    17:31               & Reserved             \\ \hline
+  \end{tabularx}
+  \caption{LVT Error Register~\cite[sec.~3.11.5.1]{ia32}.}
+  \label{tab:lapicregslvterr}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description} \\ \hline\hline
+    0:7                 & Interrupt Vector     \\ \hline
+    8:10                & Delivery Mode        \\ \hline
+    11                  & Reserved             \\ \hline
+    12                  & Delivery Status      \\ \hline
+    13                  & Pin Polarity         \\ \hline
+    14                  & Remote IRR           \\ \hline
+    15                  & Pin Polarity         \\ \hline
+    16                  & Masked               \\ \hline
+    17:31               & Reserved             \\ \hline
+  \end{tabularx}
+  \caption{LVT LINT1 Register~\cite[sec.~3.11.5.1]{ia32}.}
+  \label{tab:lapicregslvtlint}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description} \\ \hline\hline
+    0:31                & Initial Count        \\ \hline
+  \end{tabularx}
+  \caption{Timer Initial Count Register~\cite[sec.~3.11.5.4]{ia32}.}
+  \label{tab:lapicregstimerinit}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description} \\ \hline\hline
+    0:1                 & Divider              \\ \hline
+    2                   & Reserved             \\ \hline
+    3                   & Divider              \\ \hline
+    4:31                & Reserved             \\ \hline
+  \end{tabularx}
+  \caption{Timer Divide Configuration Register~\cite[sec.~3.11.5.4]{ia32}.}
+  \label{tab:lapicregstimerdiv}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description} \\ \hline\hline
+    0:7                 & Reserved             \\ \hline
+    8                   & BSP Flag             \\ \hline
+    9                   & Reserved             \\ \hline
+    10                  & Enable x2Apic        \\ \hline
+    11                  & Enable xApic         \\ \hline
+    12:35               & APIC Base Address    \\ \hline
+    36:63               & Reserved             \\ \hline
+  \end{tabularx}
+  \caption{IA32\textunderscore{}APIC\textunderscore{}BASE MSR~\cite[sec.~3.11.12.1]{ia32}.}
+  \label{tab:lapicregsmsr}
+\end{table}
+
+\clearpage
+
+\section{I/O APIC Registers}
+\label{sec:ioapicregs}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Register Name}    & \textbf{Memory Offset} \\ \hline\hline
+    Index Register            & 0x00                   \\ \hline
+    Data Register             & 0x10                   \\ \hline\hline
+    \textbf{Register Name}    & \textbf{Index Offset}  \\ \hline\hline
+    I/O APIC ID Register      & 0x00                   \\ \hline
+    I/O APIC Version Register & 0x01                   \\ \hline
+    Redirection Table         & 0x10:0x3F              \\ \hline
+  \end{tabularx}
+  \caption{I/O APIC Registers used in this Implementation~\cite[sec.~9.5]{ich5}.}
+  \label{tab:ioapicregs}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description}    \\ \hline\hline
+    0:7                 & Indirect Register Index \\ \hline
+  \end{tabularx}
+  \caption{I/O APIC Index Register~\cite[sec.~9.5.2]{ich5}.}
+  \label{tab:ioapicregsidx}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description}   \\ \hline\hline
+    0:31                & Indirect Register Data \\ \hline
+  \end{tabularx}
+  \caption{I/O APIC Data Register~\cite[sec.~9.5.3]{ich5}.}
+  \label{tab:ioapicregsdat}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description} \\ \hline\hline
+    0:14                & Reserved             \\ \hline
+    15                  & Scratchpad Bit       \\ \hline
+    16:23               & Reserved             \\ \hline
+    24:27               & I/O APIC ID          \\ \hline
+    28:31               & Reserved             \\ \hline
+  \end{tabularx}
+  \caption{I/O APIC ID Register~\cite[sec.~9.5.6]{ich5}.}
+  \label{tab:ioapicregsid}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description}        \\ \hline\hline
+    0:7                 & I/O APIC Version            \\ \hline
+    8:14                & Reserved                    \\ \hline
+    15                  & PRQ                         \\ \hline
+    16:23               & Maximum Redirection Entries \\ \hline
+    24:31               & Reserved                    \\ \hline
+  \end{tabularx}
+  \caption{I/O APIC Version Register~\cite[sec.~9.5.7]{ich5}.}
+  \label{tab:ioapicregsver}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description}    \\ \hline\hline
+    0:7                 & Interrupt Vector        \\ \hline
+    8:10                & Delivery Mode           \\ \hline
+    11                  & Destination Mode        \\ \hline
+    12                  & Delivery Status         \\ \hline
+    13                  & Pin Polarity            \\ \hline
+    14                  & Remote IRR              \\ \hline
+    15                  & Trigger Mode            \\ \hline
+    16                  & Masked                  \\ \hline
+    17:47               & Reserved                \\ \hline
+    48:55               & Extended Destination ID \\ \hline
+    56:63               & Destination             \\ \hline
+  \end{tabularx}
+  \caption{I/O APIC REDTBL Register~\cite[sec.~9.5.8]{ich5}.}
+  \label{tab:ioapicregsredtbl}
+\end{table}
+
+\clearpage
+
+\section{System Description Tables}
+\label{sec:sdts}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Byte Number} & \textbf{Description}    \\ \hline\hline
+    0:35                 & MADT Header             \\ \hline
+    36:39                & Local APIC Base Address \\ \hline
+    40:43                & Local APIC Flags        \\ \hline
+    44:                  & List of APIC Structures \\ \hline
+  \end{tabularx}
+  \caption{ACPI MADT~\cite[sec.~5.2.8]{acpi1}.}
+  \label{tab:madt}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Byte Number} & \textbf{Description}                                \\ \hline\hline
+    0:1                  & APIC Structure Header                               \\ \hline
+    2                    & ACPI Processor ID                                   \\ \hline
+    3                    & APIC ID                                             \\ \hline
+    4:7                  & Local APIC Flags (see \autoref{tab:madtlapicflags}) \\ \hline
+  \end{tabularx}
+  \caption{MADT Processor Local APIC Structure~\cite[sec.~5.2.8.1]{acpi1}.}
+  \label{tab:madtlapic}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description} \\ \hline\hline
+    0                   & Enabled              \\ \hline
+    1:31                & Reserved             \\ \hline
+  \end{tabularx}
+  \caption{Local APIC Flags~\cite[sec.~5.2.8.1]{acpi1}.}
+  \label{tab:madtlapicflags}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Byte Number} & \textbf{Description}  \\ \hline\hline
+    0:1                  & APIC Structure Header \\ \hline
+    2                    & I/O APIC ID           \\ \hline
+    3                    & Reserved              \\ \hline
+    4:7                  & I/O APIC Base Address \\ \hline
+    8:11                 & I/O APIC GSI Base     \\ \hline
+  \end{tabularx}
+  \caption{MADT I/O APIC Structure~\cite[sec.~5.2.8.2]{acpi1}.}
+  \label{tab:madtioapic}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Byte Number} & \textbf{Description}                                    \\ \hline\hline
+    0:1                  & APIC Structure Header                                   \\ \hline
+    2                    & Bus                                                     \\ \hline
+    3                    & Source                                                  \\ \hline
+    4:7                  & GSI                                                     \\ \hline
+    8:9                  & Interrupt Input Flags (see \autoref{tab:madtintiflags}) \\ \hline
+  \end{tabularx}
+  \caption{MADT Interrupt Source Override Structure~\cite[sec.~5.2.8.3.1]{acpi1}.}
+  \label{tab:madtirqoverride}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Bit Number} & \textbf{Description} \\ \hline\hline
+    0:1                 & Pin Polarity         \\ \hline
+    2:3                 & Trigger Mode         \\ \hline
+    4:11                & Reserved             \\ \hline
+  \end{tabularx}
+  \caption{Interrupt Input Flags~\cite[sec.~5.2.8.3.1]{acpi1}.}
+  \label{tab:madtintiflags}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Byte Number} & \textbf{Description}                                    \\ \hline\hline
+    0:1                  & APIC Structure Header                                   \\ \hline
+    2:3                  & Interrupt Input Flags (see \autoref{tab:madtintiflags}) \\ \hline
+    4:7                  & GSI
+  \end{tabularx}
+  \caption{MADT I/O APIC NMI Source~\cite[sec.~5.2.8.3.2]{acpi1}.}
+  \label{tab:madtionmi}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabularx}{1.0\textwidth}{| X | X |}
+    \hline
+    \textbf{Byte Number} & \textbf{Description}                                    \\ \hline\hline
+    0:1                  & APIC Structure Header                                   \\ \hline
+    2                    & ACPI Processor ID                                       \\ \hline
+    3:4                  & Interrupt Input Flags (see \autoref{tab:madtintiflags}) \\ \hline
+    5                    & Local APIC Interrupt Input                              \\ \hline
+  \end{tabularx}
+  \caption{MADT Local APIC NMI Source~\cite[sec.~5.2.8.3.3]{acpi1}.}
+  \label{tab:madtlnmi}
+\end{table}

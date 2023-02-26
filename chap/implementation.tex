@@ -1,0 +1,645 @@
+\chapter{Implementation}
+\label{ch:implementation}
+
+This section will detail how and to what extent the APIC support was implemented. The steps
+performed in this implementation are described in a generally applicable way, concrete
+implementation details with hhuOS as an example are found in \autoref{ch:listings}.
+\autoref{sec:hhuosintegration} deals with the modifications done to the hhuOS system to integrate
+the APIC implementation.
+
+\clearpage
+
+\section{Design Decisions and Scope}
+\label{sec:design}
+
+The APIC interrupt architecture is split into multiple hardware components and tasks: The
+(potentially multiple) local APICs, the (usually single) I/O APIC and the APIC timer (part of each
+local APIC). Furthermore, the APIC system needs to interact with its memory mapped registers and
+the hhuOS ACPI subsystem, to gather information about the CPU topology and IRQ overrides. Also, the
+OS should be able to interact with the APIC system in a simple and easy manner, without needing to
+know all of its individual parts.
+
+To keep the whole system structured and simple, the implementation is split into the following main
+components (see \autoref{fig:implarch}):
+
+\begin{itemize}
+  \item \code{LocalApic}: Provides functionality to interact with the local APIC
+        (masking and unmasking, register access, etc.).
+  \item \code{IoApic}: Provides functionality to interact with the I/O APIC (masking and
+        unmasking, register access, etc.)
+  \item \code{ApicTimer}: Provides functionality to calibrate the APIC timer and handle its interrupts.
+  \item \code{Apic}: Condenses all the functionality above and exposes it to other parts
+        of the OS\@.
+\end{itemize}
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.5\textwidth}
+    \includesvg[width=1.0\linewidth]{img/Architecture.svg}
+  \end{subfigure}
+  \caption{Caller hierarchy of the main components.}
+  \label{fig:implarch}
+\end{figure}
+
+This implementation is targeted to support systems with a single I/O APIC\footnote{Operation with
+  more than one I/O APIC is described further in the MultiProcessor
+  specification~\cite[sec.~3.6.8]{mpspec}.}, because consumer hardware typically only uses a single
+one, and so does QEMU emulation. General information on implementing multiple I/O APIC support can
+be found in \autoref{subsec:multiioapic}.
+
+With the introduction of ACPI's GSIs to the OS, new types are introduced to clearly differentiate
+different representations of interrupts and prevent unintentional conversions:
+
+\begin{itemize}
+  \item \code{GlobalSystemInterrupt}: ACPI's interrupt abstraction, detached from the hardware
+        interrupt lines.
+  \item \code{InterruptRequest}: Represents an IRQ, allowing the OS to address interrupts by
+        the name of the device that triggers it. When the APIC is used, IRQ overrides map IRQs to GSIs.
+  \item \code{InterruptVector}: Represents an interrupt's vector number, as used by the
+        \code{InterruptDispatcher}. The dispatcher maps interrupt vectors to interrupt handlers.
+\end{itemize}
+
+Both BIOS and UEFI are supported by hhuOS, but the hhuOS ACPI subsystem is currently only available
+with BIOS\footnote{State from 11/02/23.}, so when hhuOS is booted using UEFI, APIC support can't be
+enabled. Also, the APIC can handle MSIs, but they are not included in this implementation, as hhuOS
+currently does not utilize them.
+
+SMP systems are partially supported: The APs are initialized, but only to a busy-looping state, as
+hhuOS currently is a single-core OS and lacks some required infrastructure. All interrupts are
+handled using the BSP\@.
+
+Summary of features that are outside the scope of this thesis:
+
+\begin{itemize}
+  \item Operation with a discrete APIC or x2Apic.
+  \item Interrupts with logical destinations or custom priorities.
+  \item Returning from APIC operation to PIC mode\footnote{This would be theoretically possible with
+          single-core hardware, but probably useless.}.
+  \item Relocation of a local APIC's MMIO memory region\footnote{Relocation is possible by writing a new
+          physical APIC base address to the IA32\textunderscore{}APIC\textunderscore{}BASE MSR.}.
+  \item Distributing external interrupts to different APs in SMP enabled systems.
+  \item Usage of the system's performance counter or monitoring interrupts.
+  \item Meaningful APIC error handling.
+  \item Handling of MSIs.
+\end{itemize}
+
+To be able to easily extend an APIC implementation for single-core systems to SMP systems, some
+things have to be taken into account:
+
+\begin{itemize}
+  \item SMP systems need to manage multiple \code{LocalApic} and \code{ApicTimer} instances. This is
+        handled by the \code{Apic} class.
+  \item Initialization of the different components can no longer happen at the same ``location'': The local
+        APICs and APIC timers of additional APs have to be initialized by the APs themselves, because the
+        BSP can not access an AP's registers.
+  \item APs are only allowed to access instances of APIC classes that belong to them.
+  \item Interrupt handlers that get called on multiple APs may need to take the current processor into
+        account (for example the APIC timer interrupt handler).
+  \item Register access has to be synchronized, if it is performed in multiple operations on the same
+        address space.
+\end{itemize}
+
+\section{Code Style}
+\label{sec:codestyle}
+
+Individual state of local and I/O APICs is managed through instances of their respective classes.
+Because each CPU core can only access the local APIC contained in itself, this can create a
+misconception: It is not possible to (e.g.) allow an interrupt in a certain local APIC by calling a
+function on a certain \code{LocalApic} instance. This is communicated through code by declaring a
+range of functions as \code{static}. It is also in direct contrast to the \code{IoApic} class: I/O
+APICs can be addressed by instances, because they are not part of the CPU core: Each core can
+always access all I/O APICs (if there are multiple).
+
+Error checking is done to a small extent in this implementation: Publicly exposed functions (from
+the \code{Apic} class) do check for invalid invocations, but the internally used classes do not
+protect their invariants, because they are not used directly by other parts of the OS. These
+classes only selectively expose their interfaces (by using the \code{friend} declaration) for the
+same reason.
+
+\clearpage
+
+\section{Local APIC}
+\label{sec:lapicinit}
+
+The local APIC block diagram (see \autoref{fig:localapicblock}) shows a number of registers that
+are required for initialization:
+
+\begin{itemize}
+  \item \textbf{\gls{lvt}}: Used to configure how local interrupts are handled.
+  \item \textbf{\gls{svr}}: Contains the software-enable flag and the spurious interrupt vector number.
+  \item \textbf{\gls{tpr}}: Decides the order in which interrupts are handled and a possible interrupt
+        priority threshold, to ignore low priority interrupts.
+  \item \textbf{\gls{icr}}: Controls the sending of IPIs for starting up APs in SMP enabled systems.
+  \item \textbf{\gls{apr}}: Controls the priority in the APIC arbitration mechanism.
+\end{itemize}
+
+There are multiple registers associated with the LVT, those belong to the different local
+interrupts the local APIC can handle. Local interrupts this implementation is concerned about are
+listed below:
+
+\begin{itemize}
+  \item LINT1: The local APIC's NMI source.
+  \item Timer: Periodic interrupt triggered by the APIC timer.
+  \item Error: Triggered by errors in the APIC system (e.g.\ invalid vector numbers or corrupted messages
+        in internal APIC communication).
+\end{itemize}
+
+The LINT0 interrupt is unlisted, because it is mainly important for virtual wire mode (it can be
+triggered by external interrupts from the PIC). The performance and thermal monitoring interrupts
+also remain unused in this implementation.
+
+Besides the local APIC's own registers, the IMCR and \textbf{\gls{ia32 apic base msr}} also require
+initialization (described in \autoref{subsec:lapicenable}).
+
+After system power-up, the local APIC is in the following state~\cite[sec.~3.11.4.7]{ia32}:
+
+\begin{itemize}
+  \item IRR, ISR and TPR are reset to \code{0x00000000}.
+  \item The LVT is reset to \code{0x00000000}, except for the masking bits (all local interrupts are masked
+        on power-up).
+  \item The SVR is reset to \code{0x000000FF}.
+  \item The APIC is in xApic mode, even if x2Apic support is present.
+  \item Only the BSP is enabled, other APs have to be enabled by the BSP's local APIC\@.
+\end{itemize}
+
+The initialization sequence consists of these steps:
+
+\begin{enumerate}
+  \item Enable symmetric I/O mode and set the APIC operating mode.
+  \item Initialize the LVT and NMI\@.
+  \item Initialize the SVR\@.
+  \item Clear outstanding signals.
+  \item Initialize the TPR\@.
+  \item Initialize the APIC timer and error handler.
+  \item Startup the APs and initialize their respective local APICs.
+  \item Synchronize the APRs.
+\end{enumerate}
+
+\subsection{Accessing Local APIC Registers in xApic Mode}
+\label{subsec:xapicregacc}
+
+Accessing registers in xApic mode is done via MMIO and requires a single page (4 KB) of memory,
+mapped to the ``APIC Base'' address, which can be obtained by reading the
+IA32\textunderscore{}APIC\textunderscore{}BASE MSR (see
+\autoref{fig:ia32apicbasemsr}/\autoref{tab:lapicregsmsr}) or parsing the MADT (see
+\autoref{tab:madt}). The IA-32 manual specifies a caching strategy of ``strong
+uncachable''\footnote{See IA-32 manual for information on this caching
+  strategy~\cite[sec.~3.12.3]{ia32}.}~\cite[sec.~3.11.4.1]{ia32} for this region (see
+\autoref{sec:apxxapicregacc} for the example implementation).
+
+The address offsets (from the base address) for the local APIC registers are listed in the IA-32
+manual~\cite[sec.~3.11.4.1]{ia32} and in \autoref{tab:lapicregs}.
+
+\subsection{Enabling the Local APIC}
+\label{subsec:lapicenable}
+
+The following steps have to be executed before any interrupt handling has been enabled by the OS\@.
+
+Because the system boots in PIC mode, \code{0x01} should be written to the
+IMCR~\cite[sec.~3.6.2.1]{mpspec} to disconnect the PIC from the local APIC's LINT0 pin (see
+\autoref{fig:integratedapic}, for the example implementation see \autoref{sec:apxdisablepic}).
+
+To set the operating mode, it is first determined which modes are supported by executing the
+\code{cpuid} instruction with \code{eax=1}: If bit 9 of the \code{edx} register is set, xApic mode
+is supported, if bit 21 of the \code{ecx} register is set, x2Apic mode is
+supported~\cite[sec.~5.1.2]{cpuid}.
+
+If xApic mode is supported (if the local APIC is an integrated APIC), it will be in that mode
+already. The ``global enable/disable'' (``EN'') bit in the
+IA32\textunderscore{}APIC\textunderscore{}BASE MSR (see
+\autoref{fig:ia32apicbasemsr}/\autoref{tab:lapicregsmsr}) allows disabling xApic mode, and thus the
+entire local APIC, globally\footnote{If the system uses the discrete APIC bus, xApic mode cannot be
+  re-enabled without a system reset~\cite[sec.~3.11.4.3]{ia32}.}.
+
+Enabling x2Apic mode is done by setting the ``EXTD'' bit (see
+\autoref{fig:ia32apicbasemsr}/\autoref{tab:lapicregsmsr}) of the
+IA32\textunderscore{}APIC\textunderscore{}BASE MSR~\cite[sec.~3.11.4.3]{ia32}.
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.7\textwidth}
+    \includesvg[width=1.0\linewidth]{img/ia32_apic_base_msr.svg}
+  \end{subfigure}
+  \caption{The IA32\textunderscore{}APIC\textunderscore{}BASE MSR~\cite[sec.~3.11.4.4]{ia32}.}
+  \label{fig:ia32apicbasemsr}
+\end{figure}
+
+Because QEMU does not support x2Apic mode via its TCG\footnote{QEMU Tiny Code Generator transforms
+  target instructions to instructions for the host CPU.}, this implementation only uses xApic mode.
+
+Besides the ``global enable/disable'' (``EN'') flag, the APIC can also be enabled/disabled by using
+the ``software enable/disable'' flag in the SVR, see \autoref{subsec:lapicsoftenable}.
+
+\subsection{Handling Local Interrupts}
+\label{subsec:lapiclvtinit}
+
+To configure how the local APIC handles the different local interrupts, the LVT registers are
+written (see \autoref{fig:localapiclvt}).
+
+Local interrupts can be configured to use different delivery modes
+(excerpt)~\cite[sec.~3.11.5.1]{ia32}:
+
+\begin{itemize}
+  \item Fixed: Simply delivers the interrupt vector stored in the LVT register.
+  \item NMI: Configures this interrupt as non-maskable, this ignores the stored vector number.
+  \item ExtINT: The interrupt is treated as an external interrupt (instead of local interrupt), used e.g.\
+        in virtual wire mode for LINT0.
+\end{itemize}
+
+Initially, all local interrupts are initialized to PC/AT defaults: Masked, edge-triggered,
+active-high and with ``fixed'' delivery mode. Most importantly, the vector fields (bits 0:7 of an
+LVT register) are set to their corresponding interrupt vector (see \autoref{sec:apxlvtinit} for an
+example implementation).
+
+After default-initializing the local interrupts, LINT1 has to be configured separately (see
+\autoref{tab:lapicregslvtlint}), because it is the local APIC's NMI source\footnote{In older
+  specifications~\cite{mpspec}, LINT1 is defined as NMI source (see \autoref{fig:integratedapic}). It
+  is possible that this changed with newer architectures, so for increased compatibility this
+  implementation configures the local APIC NMI source as reported by ACPI. It is also possible that
+  ACPI reports information on the NMI source just for future-proofing.}. The delivery mode is set to
+``NMI'' and the interrupt vector to \code{0x00}. This information is also provided by ACPI in the
+MADT (see \autoref{tab:madtlnmi}). Other local interrupts (APIC timer and the error interrupt) will
+be configured later (see \autoref{subsec:lapictimer} and \autoref{subsec:lapicerror}).
+
+\subsection{Allowing Interrupt Processing}
+\label{subsec:lapicsoftenable}
+
+To complete a minimal local APIC initialization, the ``software enable/disable'' flag and the
+spurious interrupt vector (both contained in the SVR, see
+\autoref{fig:ia32apicsvr}/\autoref{tab:lapicregssvr}), are set. It makes sense to choose
+\code{0xFF} for the spurious interrupt vector, as on P6 and Pentium processors, the lowest 4 bits
+must be set (see \autoref{fig:ia32apicsvr}).
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.7\textwidth}
+    \includesvg[width=1.0\linewidth]{img/ia32_apic_svr.svg}
+  \end{subfigure}
+  \caption{The local APIC SVR register~\cite[sec.~3.11.9]{ia32}.}
+  \label{fig:ia32apicsvr}
+\end{figure}
+
+Because the APIC's spurious interrupt has a dedicated interrupt vector (unlike the PIC's spurious
+interrupt), it can be ignored easily by registering a stub interrupt handler for the appropriate
+vector (see \autoref{sec:apxsvr} for an implementation example).
+
+The final step to initialize the BSP's local APIC is to allow the local APIC to receive interrupts
+of all priorities. This is done by writing \code{0x00} to the TPR~\cite[sec.~3.11.8.3]{ia32} (see
+\autoref{tab:lapicregstpr}). By configuring the TPRs of different local APICs to different
+priorities or priority classes, distribution of external interrupts to CPUs can be controlled, but
+this is not used in this thesis.
+
+\subsection{Local Interrupt EOI}
+\label{subsec:lapiceoi}
+
+To notify the local APIC that a local interrupt has been handled, its EOI register (see
+\autoref{tab:lapicregseoi}) has to be written. Not all local interrupts require EOIs: NMI, SMI,
+INIT, ExtINT, STARTUP, or INIT-Deassert interrupts are excluded~\cite[sec.~3.11.8.5]{ia32}.
+
+EOIs for external interrupts are also handled by the local APIC, this is described in
+\autoref{subsec:ioapiceoi}.
+
+\subsection{APIC Timer}
+\label{subsec:lapictimer}
+
+The APIC timer is integrated into the local APIC, so it requires initialization of the latter. Like
+the PIT, the APIC timer can generate periodic interrupts in a specified interval by using a
+counter, that is initialized with a starting value depending on the desired interval. Because the
+APIC timer doesn't tick with a fixed frequency, but at bus frequency, the initial counter has to be
+determined at runtime by using an external time source. In addition to the counter register, the
+APIC timer interval is influenced by a divider: Instead of decrementing the counter at every bus
+clock, it will be decremented every \(n\)-th bus clock, where \(n\) is the divider. This is useful
+to allow for long intervals (with decreased precision), that would require a larger counter
+register otherwise.
+
+The APIC timer supports three different timer modes, that can be set in the timer's LVT register:
+
+\begin{enumerate}
+  \item Oneshot: Trigger exactly one interrupt when the counter reaches zero.
+  \item Periodic: Trigger an interrupt each time the counter reaches zero, on zero the counter reloads its
+        initial value.
+  \item TSC-Deadline: Trigger exactly one interrupt at an absolute time.
+\end{enumerate}
+
+This implementation uses the APIC timer in periodic mode, to trigger the scheduler preemption.
+Initialization requires the following steps (order recommended by OSDev~\cite{osdev}):
+
+\begin{enumerate}
+  \item Measure the timer frequency with an external time source.
+  \item Configuration of the timer's divider register (see \autoref{tab:lapicregstimerdiv}).
+  \item Setting the timer mode to periodic (see \autoref{tab:lapicregslvtt}).
+  \item Initializing the counter register (see \autoref{tab:lapicregstimerinit}), depending on the measured
+        timer frequency and the desired interval.
+\end{enumerate}
+
+In this implementation, the APIC timer is calibrated by counting the amount of ticks in one
+millisecond using oneshot mode (see \autoref{sec:apxapictimer} for an example implementation). The
+measured amount of timer ticks can then be used to calculate the required counter for an arbitrary
+millisecond interval, although very large intervals could require the use of a larger divider,
+while very small intervals (in micro- or nanosecond scale) could require the opposite, to provide
+the necessary precision. For this approach it is important that the timer is initialized with the
+same divider that was used during calibration.
+
+To use the timer, an interrupt handler has to be registered to its interrupt vector (see
+\autoref{sec:apxapictimer} for an example implementation).
+
+\subsection{APIC Error Interrupt}
+\label{subsec:lapicerror}
+
+Errors can occur for example when the local APIC receives an invalid vector number, or an APIC
+message gets corrupted on the system bus. To handle these cases, the local APIC provides the local
+error interrupt, whose interrupt handler can read the error status from the local APIC's
+\textbf{\gls{esr}} (see \autoref{fig:ia32esr}/\autoref{tab:lapicregsesr}) and take appropriate
+action.
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.7\textwidth}
+    \includesvg[width=1.0\linewidth]{img/ia32_error_status_register.svg}
+  \end{subfigure}
+  \caption{Error Status Register~\cite[sec.~3.11.5.3]{ia32}.}
+  \label{fig:ia32esr}
+\end{figure}
+
+The ESR is a ``write/read'' register: Before reading a value from the ESR, it has to be written,
+which updates the ESR's contents to the error status since the last write. Writing the ESR also
+arms the local error interrupt again~\cite[sec.~3.11.5.3]{ia32}.
+
+Enabling the local error interrupt is now as simple as enabling it in the local APIC's LVT and
+registering an interrupt handler for the appropriate vector (see \autoref{sec:apxhandlingerror} for
+an example implementation).
+
+\clearpage
+
+\section{I/O APIC}
+\label{sec:ioapicinit}
+
+% TODO: Continue moving code to the appendix from here on
+
+To fully replace the PIC and handle external interrupts using the APIC, the I/O APIC, located in
+the system chipset, has to be initialized by setting its \textbf{\gls{redtbl}}
+registers~\cite[sec.~9.5.8]{ich5} (see \autoref{tab:ioapicregsredtbl}). Like the local APIC's LVT,
+the REDTBL allows configuration of interrupt vectors, masking bits, interrupt delivery modes, pin
+polarities and trigger modes (see \autoref{subsec:lapiclvtinit}).
+
+Additionally, for external interrupts a destination and destination mode can be specified. This is
+required because the I/O APIC is able to forward external interrupts to different local APICs over
+the system bus (see \autoref{fig:integratedapic}). SMP systems use this mechanism to distribute
+external interrupts to different CPU cores for performance benefits. Because this implementation's
+focus is not on SMP, all external interrupts are default initialized to ``physical'' destination
+mode\footnote{The alternative is "logical" destination mode, which allows addressing individual or
+  clusters of local APIC's in a larger volume of
+  processors~\cite[sec.~3.11.6.2.2]{ia32}.}~\cite[sec.~3.11.6.2.1]{ia32} and are sent to the BSP for
+servicing, by using the BSP's local APIC ID as the destination. The other fields are set to
+\textbf{\gls{isa}} bus defaults\footnote{Edge-triggered, active-high.}, with ``fixed'' delivery
+mode, masked, and the corresponding interrupt vector, as defined by the \code{InterruptVector}
+enum.
+
+The I/O APIC does not have to be enabled explicitly, if the local APIC is enabled and the REDTBL is
+initialized correctly, external interrupts will be redirected to the local APIC and handled by the
+CPU\@.
+
+Unlike the local APIC's registers, the REDTBL registers are accessed indirectly: Two registers, the
+``Index'' and ``Data'' register~\cite[sec.~9.5.1]{ich5}, are mapped to the main memory and can be
+used analogous to the local APIC's registers. The MMIO base address can be parsed from the MADT
+(see \autoref{tab:madtioapic}). Writing an offset to the index register exposes an indirectly
+accessible I/O APIC register through the data register (see \autoref{sec:iolistings} for an example
+implementation). This indirect addressing scheme is useful, because the number of external
+interrupts an I/O APIC supports, and in turn the number of REDTBL registers, can
+vary\footnote{Intel's consumer \textbf{\glspl{ich}} always support a fixed amount of 24 external
+  interrupts though~\cite[sec.~9.5.7]{ich5}.}.
+
+It is possible that one or multiple of the I/O APIC's interrupt inputs act as an NMI source. If
+this is the case is reported in the MADT (see \autoref{tab:madtionmi}), so when necessary, the
+corresponding REDTBL entries are initialized like the local APIC's NMI source (see
+\autoref{subsec:lapiclvtinit}), and using these interrupt inputs for external interrupts is
+forbidden.
+
+\subsection{Interrupt Overrides}
+\label{subsec:ioapicpcat}
+
+In every PC/AT compatible system, external devices are hardwired to the PIC in the same order.
+Because this is not the case for the I/O APIC, the interrupt line used by each PC/AT compatible
+interrupt has to be determined by the OS at runtime, by using ACPI. ACPI provides ``Interrupt
+Source Override'' structures~\cite[sec.~5.2.8.3.1]{acpi1} inside the MADT (see
+\autoref{tab:madtirqoverride}) for each PC/AT compatible interrupt that is mapped differently to
+the I/O APIC than to the PIC\@.
+
+In addition to the interrupt input mapping, these structures also allow to customize the pin
+polarity and trigger mode of PC/AT compatible interrupts.
+
+This information does not only apply to the REDTBL initialization, but it has to be taken into
+account every time an action is performed on a PC/AT compatible interrupt, like masking or
+unmasking: If \code{IRQ0} (PIT) should be unmasked, it has to be determined what GSI (or in other
+words, I/O APIC interrupt input) it belongs to. In many systems \code{IRQ0} is mapped to
+\code{GSI2}, because the PC/AT compatible PICs are connected to \code{GSI0}. Thus, to allow the PIT
+interrupt in those systems, the REDTBL entry belonging to \code{GSI2} instead of \code{GSI0} has to
+be written (see \autoref{sec:apxirqoverrides} for an example implementation).
+
+\subsection{External Interrupt EOI}
+\label{subsec:ioapiceoi}
+
+Notifying the I/O APIC that an external interrupt has been handled differs depending on the
+interrupt trigger mode: Edge-triggered external interrupts are completed by writing the local
+APIC's EOI register (see \autoref{subsec:lapiceoi})\footnote{Because external interrupts are
+  forwarded to the local APIC, the local APIC is responsible for tracking them in its IRR and ISR.}.
+Level-triggered interrupts are treated separately: Upon registering a level-triggered external
+interrupt, the I/O APIC sets an internal ``Remote IRR'' bit in the corresponding REDTBL
+entry~\cite[sec.~9.5.8]{ich5} (see \autoref{tab:ioapicregsredtbl}).
+
+There are three possible ways to signal completion of a level-triggered external interrupt to clear
+the remote IRR bit:
+
+\begin{enumerate}
+  \item Using the local APIC's EOI broadcasting feature: If EOI broadcasting is enabled, writing the local
+        APIC's EOI register also triggers EOIs for each I/O APIC (for the appropriate interrupt), which
+        clears the remote IRR bit.
+  \item Sending a directed EOI to an I/O APIC: I/O APICs with versions greater than \code{0x20} include an
+        I/O EOI register. Writing the vector number of the handled interrupt to this register clears the
+        remote IRR bit.
+  \item Simulating a directed EOI for I/O APICs with versions smaller than \code{0x20}: Temporarily masking
+        and setting a completed interrupt as edge-triggered clears the remote IRR
+        bit~\cite[io\textunderscore{}apic.c]{linux}.
+\end{enumerate}
+
+Because the first option is the only one supported by all APIC versions, it is used in this
+implementation\footnote{Disabling EOI broadcasting is not supported by all local
+  APICs~\cite[sec.~3.11.8.5]{ia32}.}.
+
+At this point, after initializing the local and I/O APIC for the BSP, the APIC system is fully
+usable. External interrupts now have to be enabled/disabled by writing the ``masked'' bit in these
+interrupts' REDTBL entries, interrupt handler completion is signaled by writing the local APIC's
+EOI register, and spurious interrupts are detected by using the local APIC's spurious interrupt
+vector.
+
+\subsection{Multiple I/O APICs}
+\label{subsec:multiioapic}
+
+Most consumer hardware, for example all IA processors~\cite{ia32} and ICH hubs~\cite{ich5}, only
+provide a single I/O APIC, although technically multiple I/O APICs are supported by the
+MultiProcessor specification~\cite[sec.~3.6.8]{mpspec}.
+
+If ACPI reports multiple I/O APICs (by supplying multiple MADT I/O APIC structures, see
+\autoref{tab:madtioapic}), the previously described initialization has to be performed for each I/O
+APIC individually. Additionally, the I/O APIC's ID, also reported by ACPI, has to be written to the
+corresponding I/O APIC's ID register (see \autoref{tab:ioapicregsid}), because this register is
+always initialized to zero~\cite[sec.~9.5.6]{ich5}.
+
+Using a variable number of I/O APICs requires determining the target I/O APIC for each operation
+that concerns a GSI, like masking or unmasking. For this reason, ACPI provides the ``GSI
+Base''~\cite[sec.~5.2.8.2]{acpi1} for each available I/O APIC, the number of GSIs a single I/O APIC
+can handle can be determined by reading the I/O APIC's version register~\cite[sec.~9.5.7]{ich5}
+(see \autoref{tab:ioapicregsver})\footnote{This approach was previously used in this
+  implementation, but removed for simplicity.}.
+
+\clearpage
+
+\section{Symmetric Multiprocessing}
+\label{sec:smpinit}
+
+Like single-core systems, SMP systems boot using only a single core, the BSP. By using the APIC's
+capabilities to send IPIs between cores, additional APs can be put into startup state and booted
+for system use.
+
+To determine the amount of usable processors, the MADT is parsed (see \autoref{tab:madtlapic}).
+Note, that some processors may be reported as disabled, those may not be used by the OS (see
+\autoref{tab:madtlapicflags}).
+
+\subsection{Inter-Processor Interrupts}
+\label{subsec:ipis}
+
+Issuing IPIs works by writing the local APIC's ICR (see
+\autoref{fig:ia32icr}/\autoref{tab:lapicregsicr}). It allows specifying IPI type, destination
+(analogous to REDTBL destinations, see \autoref{sec:ioapicinit}) and vector (see
+\autoref{sec:apxipis} for an example implementation).
+
+Depending on the APIC architecture, two different IPIs are required: The INIT IPI for systems using
+a discrete APIC, and the \textbf{\gls{sipi}} for systems using the xApic or x2Apic architectures:
+
+\begin{itemize}
+  \item The INIT IPI causes an AP to reset its state and start executing at the address specified at its
+        system reset vector. If paired with a system warm-reset, the AP can be instructed to start
+        executing the AP boot sequence by writing the appropriate address to the warm-reset
+        vector~\cite[sec.~B.4.1]{mpspec}.
+  \item Since the xApic architecture, the SIPI is used for AP startup: It causes the AP to start executing
+        code in real mode, at a page specified in the IPIs interrupt vector~\cite[sec.~B.4.2]{mpspec}. By
+        copying the AP boot routine to a page in lower physical memory, and sending the SIPI with the
+        correct page number, an AP can be booted.
+\end{itemize}
+
+To wait until the IPI is sent, the ICR's delivery status bit can be polled.
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.7\textwidth}
+    \includesvg[width=1.0\linewidth]{img/ia32_interrupt_command_register.svg}
+  \end{subfigure}
+  \caption{Interrupt Command Register~\cite[sec.~3.11.6.1]{ia32}.}
+  \label{fig:ia32icr}
+\end{figure}
+
+\subsection{Universal Startup Algorithm}
+\label{subsec:apstartup}
+
+SMP initialization is performed differently on various processors. Intel's MultiProcessor
+specification defines a ``universal startup algorithm'' for multiprocessor
+systems~\cite[sec.~B.4]{mpspec}, which can be used to boot SMP systems with either discrete APIC,
+xApic or x2Apic, as it issues both, INIT IPI and SIPI\footnote{Technically, it always issues the
+  INIT IPI, and the SIPI only for xApic or x2Apic, but since the SIPI is ignored by discrete APICs,
+  it can be sent either way. This ``INIT-SIPI-SIPI'' sequence is also stated in the IA-32
+  manual~\cite[sec.~3.9.4]{ia32}.}.
+
+This algorithm has some prerequisites: It is required to copy the AP boot routine (detailed in
+\autoref{subsec:apboot}) to lower memory, where the APs will start their execution. Also, the APs
+need allocated stack memory to call the entry function, and in case of a discrete APIC that uses
+the INIT IPI, the system needs to be configured for a warm-reset (by writing \code{0xAH} to the
+CMOS shutdown status byte, located at \code{0xF}~\cite[sec.~B.4]{mpspec}), because the INIT IPI
+does not support supplying the address where AP execution should begin, unlike the SIPI. The
+warm-reset vector (a 32-bit field, located at physical address
+\code{40:67}~\cite[sec.~B.4]{mpspec}) needs to be set to the physical address the AP startup
+routine was copied to. Additionally, the entire AP startup procedure has to be performed with all
+sources of interrupts disabled, which offers a small challenge, since some timings need to be taken
+into account\footnote{This implementation uses the PIT's mode 0 on channel 0 for timekeeping.}.
+
+The usage of delays in the algorithm is quite specific, but the specification provides no further
+information on the importance of these timings or required precision. The algorithm allowed for
+successful startup of additional APs when tested in QEMU (with and without KVM) and on certain real
+hardware, although for different processors or emulators (like Bochs), different timings might be
+required~\cite[lapic.c]{xv6}.
+
+After preparation, the universal startup algorithm is now performed as follows, for each AP
+sequentially (see \autoref{sec:apxmpusa} for an example implementation):
+
+\begin{enumerate}
+  \item Assert and de-assert the level-triggered INIT IPI\@.
+  \item Delay for 10 milliseconds.
+  \item Send the SIPI\@.
+  \item Delay for 200 microseconds.
+  \item Send the SIPI again.
+  \item Delay for 200 microseconds again.
+  \item Wait until the AP has signaled boot completion, then continue to the next.
+\end{enumerate}
+
+If the system uses a discrete APIC, the APs will reach the boot routine by starting execution at
+the location specified in the warm-reset vector, if the system uses the xApic or x2Apic
+architecture, the APs will reach the boot routine because its location was specified in the SIPI\@.
+
+Signaling boot completion from the APs entry function can be done by using a global bitmap
+variable, where the \(n\)-th bit indicates the running state of the \(n\)-th processor. This
+variable does not have to be synchronized across APs, because the startup is performed
+sequentially.
+
+\subsection{Application Processor Boot Routine}
+\label{subsec:apboot}
+
+After executing the ``INIT-SIPI-SIPI'' sequence, the targeted AP will start executing its boot
+routine in real mode. The general steps required are similar to those required when booting a
+single-core system, but since the BSP in SMP systems is already fully operational at this point,
+much can be recycled. The AP boot routine this implementation uses can be roughly described as
+follows (see \autoref{sec:apxapboot} for an example implementation):
+
+\begin{enumerate}
+  \item Load a temporary \textbf{\gls{gdt}}, used for switching to protected mode.
+  \item Enable protected mode by writing \code{cr0}.
+  \item Far jump to switch to protected mode and reload the code-segment register, set up the other
+        segments manually.
+  \item Load the \code{cr3}, \code{cr0} and \code{cr4} values used by the BSP to enable paging (in that
+        order).
+  \item Load the IDT used by the BSP\@.
+  \item Determine the AP's APIC ID by using CPUID\@.
+  \item Load the GDT and \textbf{\gls{tss}} prepared for this AP\@.
+  \item Load the stack prepared for this AP\@.
+  \item Call the (C++) AP entry function.
+\end{enumerate}
+
+The APIC ID is used to determine which GDT and stack were prepared for a certain AP\@. It is
+necessary for each AP to have its own GDT, because each processor needs its own TSS for context
+switching, for example when interrupt-based system calls are used on all CPUs.
+
+Because it is relocated into lower physical memory (in this implementation to \code{0x8000}), this
+code has to be position independent. For this reason, absolute physical addresses have to be used
+when jumping, loading the IDTR and GDTR, or referencing variables. Also, any variables required
+during boot have to be available after relocation, this can be achieved by locating them inside the
+``TEXT'' section of the routine, so they stay with the rest of the instructions when copying. These
+variables have to be initialized during runtime, before the routine is copied (see
+\autoref{sec:apxpreparesmp} for an example implementation).
+
+\subsection{Application Processor Post-Boot Routine}
+\label{subsec:apsystementry}
+
+In the entry function, called at the end of the boot routine, the AP signals boot completion as
+described in \autoref{subsec:apstartup} and initializes its local APIC by repeating the necessary
+steps from \autoref{subsec:lapiclvtinit}, \autoref{subsec:lapicsoftenable},
+\autoref{subsec:lapictimer} and \autoref{subsec:lapicerror}\footnote{MMIO memory does not have to
+  be allocated again, as all local APICs use the same memory region in this implementation. Also, the
+  initial value for the APIC timer's counter can be reused, if already calibrated.}.
+
+Because multiple local APICs are present and active in the system now, the possibility arises that
+a certain local APIC receives multiple messages from different local APICs at a similar time. To
+decide the order of handling these messages, an arbitration mechanism based on the local APIC's ID
+is used~\cite[sec.~3.11.7]{ia32}. To make sure the arbitration priority matches the local APIC's
+ID, the ARPs can be synchronized by issuing an INIT-level-deassert IPI\footnote{This is not
+  supported on Pentium 4 and Xeon processors.} (see \autoref{sec:apxappostboot} for an example
+implementation).
+
+\clearpage

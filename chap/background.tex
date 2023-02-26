@@ -1,0 +1,427 @@
+\chapter{Background}
+\label{ch:background}
+
+In this section, important domain specific concepts will be explained, to create the necessary
+foundation to follow \autoref{ch:implementation}. Important terms that are present in the glossary
+are marked in \textbf{bold} on their first occurrence.
+
+\clearpage
+
+\section{Handling of External Events}
+\label{sec:eventhandling}
+
+There are two different strategies to ``listen'' for external events: ``Polling'' and
+``Interrupts''.
+
+The first strategy works by periodically \textit{polling} a device to check for changes. This could
+mean reading a register of the keyboard every 50 ms to determine if a key was pressed, or reading a
+sensor output even when the value remains unchanged. Because every device would have to be polled
+constantly, no matter if any change actually occurred, this method is computationally inefficient
+(although easy to implement without extra hardware).
+
+The second strategy are \textbf{\glspl{interrupt}}. Instead of the CPU actively ``looking'' for
+changes, the devices signal the events to the CPU themselves. Every time the CPU is notified of an
+external event, it pauses the current code execution and calls a function designated to handle this
+specific event.
+
+This approach is much more efficient than the polling strategy, because the CPU does not have to
+waste its processing power to check for events when none are occurring.
+
+\section{Fundamental Concepts}
+\label{sec:fundamentals}
+
+\subsection{Interrupt}
+\label{subsec:interrupt}
+
+When a device signals an external event to the CPU, the current code execution gets
+\textit{interrupted}, to handle the event. Thus, the process of signaling and handling an external
+event is called ``interrupt''.
+
+Interrupts can be caused by all sorts of events, like key presses on a keyboard or packets received
+via a network card. These interrupts from external hardware devices are called
+\textbf{\glspl{external interrupt}}.
+
+Other types of interrupts mentioned in this thesis are \textbf{\glspl{ipi}}, \textbf{\glspl{msi}}
+and \textbf{\glspl{local interrupt}}:
+
+\begin{itemize}
+  \item IPIs: Interrupts sent between different processor cores in multiprocessor systems, for example to
+        initialize different cores on system startup.
+  \item MSIs: Interrupts sent in-band\footnote{In in-band signaling some control information (like an IRQ)
+          is sent over the same channel as the data. This stands in contrast to out-of-band signaling, which
+          uses a dedicated control line (like an interrupt line).}, for example over a PCI-bus\footnote{PCI
+          supports MSIs since PCI 2.2~\cite[sec.~6.8]{pci22}.}.
+  \item Local Interrupts: Some specific CPU-internal interrupts.
+\end{itemize}
+
+Some interrupts are essential for continuous CPU operation. These \textbf{\glspl{nmi}} always have
+to be handled and cannot be ignored (usually\footnote{An example where NMIs should be disabled is
+  the startup of additional processors in multiprocessor systems.}). Hardware error interrupts are a
+typical example for NMIs.
+
+The existence of NMIs hints that it is possible to ignore regular interrupts. Marking an interrupt
+as ``ignored'' is called \textbf{\gls{masking}} an interrupt.
+
+\subsection{Interrupt Controller}
+\label{subsec:controller}
+
+A computer system has to process interrupts from many sources, so it is practical to have a
+designated \textbf{\gls{interrupt controller}}, that receives interrupts from different devices and
+forwards them to the CPU. The masking functionality is integrated into the interrupt controller, so
+masked interrupts don't reach the CPU at all.
+
+The interrupt controller receives interrupts through signals over physical connections (interrupt
+lines) to different devices. These signals can be represented in multiple ways through the level on
+the interrupt lines:
+
+\textbf{\Gls{trigger mode}}:
+
+\begin{itemize}
+  \item Edge-triggered signal: A signal is received when the interrupt line level changes
+  \item Level-triggered signal: A signal is received when the interrupt line reaches a certain level
+\end{itemize}
+
+\textbf{\Gls{pin polarity}}:
+
+\begin{itemize}
+  \item High: A signal is received when the interrupt line level changes from either low to high (in
+        edge-triggered mode) or reaches a level above a threshold (in level-triggered mode)
+  \item Low: A signal is received when the interrupt line level changes from either high to low (in
+        edge-triggered mode) or reaches a level below a threshold (in level-triggered mode)
+\end{itemize}
+
+A signal is represented through a combination of trigger mode and pin polarity, so there are a
+total of 4 combinations.
+
+When the interrupt controller receives an interrupt signal, it requests the CPU to handle the
+specific event: The interrupt controller sends an \textbf{\gls{irq}} to the CPU. Because there are
+multiple devices that can signal interrupts, an IRQ is usually indexed by its hardware pin on the
+interrupt controller: If a keyboard is connected to the interrupt controller on pin 1, the CPU
+receives an IRQ1.
+
+To signal that an interrupt has been handled by the software, the interrupt controller receives an
+\textbf{\gls{eoi}} notice from the OS\@.
+
+Information on specific interrupt controllers follows in \autoref{sec:intelcontrollers}.
+
+\subsection{Interrupt Handler}
+\label{subsec:handler}
+
+When the CPU receives an IRQ, it pauses its current code execution to handle the interrupt. This is
+done by executing the \textbf{\gls{interrupt handler}} function, that is registered to the specific
+interrupt.
+
+During interrupt servicing (execution of the interrupt handler), other interrupts can occur. When
+the execution of an interrupt handler is paused to handle another interrupt, this is called a
+\textbf{\gls{cascaded interrupt}}.
+
+Interrupt handlers have to be registered to different IRQs, so the CPU can locate and execute the
+specific code that is designated to handle a certain interrupt. The interrupt handler addresses are
+stored in an \textit{interrupt vector table}: Each address corresponds to an \textbf{\gls{interrupt
+    vector}} number, interrupt vectors 0 to 31 are reserved for the CPU, interrupt vectors 32 to 255
+are usable for IRQs. In Intel's 32 bit IA-32 CPU architecture, this table is called the
+\textbf{\gls{idt}}. The \textbf{\gls{idtr}} keeps the location of the IDT, it is written by the
+\code{lidt}~\cite{x86isa} instruction.
+
+\subsection{Interrupt Trigger Mode}
+\label{subsec:triggermode}
+
+When an edge-triggered IRQ is received, its interrupt handler is called a single time, serviced,
+and marked as completed in the interrupt controller (completion does not require interacting with
+the device the interrupt originated from). The handler of an edge-triggered IRQ is called every
+time the interrupt line changes its level. This could lead to problems if ``glitches'' occur on the
+interrupt line.
+
+An alternative is the level-triggered IRQ: When the interrupt line is above/below a certain level,
+the interrupt is signaled continuously. Servicing the interrupt thus requires not only signaling
+completion to the interrupt controller, but also to the device the interrupt originated from, to
+de-assert the interrupt line. Otherwise, the interrupt handler would be called again after
+completion.
+
+\subsection{Spurious Interrupt}
+\label{subsec:spurious}
+
+When an interrupt disappears while the interrupt controller is issuing the IRQ to the CPU, the
+interrupt controller sends a \textbf{\gls{spurious interrupt}}. The reason for this could be
+electrical noise on the interrupt line, masking of an interrupt through software at the same moment
+this interrupt was received, or incorrectly sent EOIs. Thus, before an interrupt handler is called,
+the OS has to check the validity of the occurred interrupt and ignore it, if it is deemed spurious.
+
+\section{Used Technologies}
+\label{sec:technologies}
+
+\subsection{Advanced Configuration and Power Interface}
+\label{subsec:acpi}
+
+\textbf{\gls{acpi}} allows the kernel to gather information about the system hardware during
+runtime. It also provides interactive functionality for power management, plug and play,
+hot-swapping or status monitoring. To interact with ACPI, the
+\textbf{\gls{aml}}~\cite[sec.~16]{acpi1}, a small language interpreted by the kernel, has to be
+used\footnote{In this thesis, information from ACPI is only read, so AML is not required.}.
+
+ACPI defines abstractions for different types of hardware, that are organized in multiple
+\textit{system description tables}. In this thesis, ACPI 1.0~\cite{acpi1} is used to read
+information about the system's interrupt hardware configuration, located in the ACPI
+\textbf{\gls{madt}}~\cite[sec.~5.2.8]{acpi1}. The MADT contains information on used interrupt
+controllers (version, physical memory addresses to access registers, etc.), available CPU cores in
+multiprocessor systems and specific interrupt configuration (trigger mode and pin polarity).
+
+To allow compatibility to different interrupt controllers, ACPI abstracts external interrupts
+through \textbf{\glspl{gsi}}~\cite[sec.~5.2.9]{acpi1}. Different interrupt controllers may have the
+same devices connected to different interrupt lines, maintaining a mapping between actual hardware
+interrupt lines and GSIs allows the OS to operate on different interrupt
+controllers\footnote{Additional information in \autoref{subsec:ioapicpcat}.}.
+
+\subsection{CPU Identification}
+\label{subsec:cpuid}
+
+\textbf{\gls{cpuid}} is used to gather information about a system's CPU. The x86 architecture
+provides the \code{cpuid}~\cite{x86isa} instruction, which allows the software to identify present
+CPU features at runtime, e.g.\ what instruction set extensions a processor implements\footnote{This
+  thesis uses CPUID to determine what APIC feature set is supported, see ``APIC'' and ``x2APIC''
+  features in the CPUID application note~\cite[sec.~5.1.2]{cpuid}.}.
+
+\subsection{Symmetric Multiprocessing}
+\label{subsec:smp}
+
+\textbf{\gls{smp}} is a form of multiprocessing, where a system consists of multiple, homogeneous
+CPU cores, that all have access to a shared main memory and the I/O devices. SMP systems are
+controlled by a single OS, that treats all cores as individual, but equal processors. The shared
+main memory allows every core to work on an arbitrary task, independent of its memory location.
+Programming for SMP systems requires the usage of multithreading, to allow for an efficient
+distribution of tasks to multiple CPU cores.
+
+In SMP systems, a single CPU core is active initially, this core is called the \textbf{\gls{bsp}}.
+Other cores, called \textbf{\glspl{ap}}, will be initialized by this core.
+
+% TODO: I think I could remove this section
+% \subsection{BIOS and UEFI}
+% \label{subsec:biosuefi}
+%
+% The \textbf{\gls{bios}} provides low-level control over a computer system's hardware, most commonly
+% used for booting an OS on system power-up. Its pre-boot environment is limited to the 16-bit
+% \textbf{\gls{real mode}} and 1 MB of addressable memory. BIOS originates from the IBM PC and has
+% been the default convention for computer system firmware until the \textbf{\gls{uefi}} standard.
+%
+% The UEFI standard is developed by the UEFI Forum, based on Intel's EFI. It improves on BIOS by
+% providing modularity, support for larger partitions, 32-bit or 64-bit environments before booting
+% and advanced features like networking capabilities, graphical user interfaces with mouse support or
+% security features\footnote{See \url{https://uefi.org/specifications} (visited on 22/02/2023).}.
+
+\subsection{Model Specific Register}
+\label{subsec:msr}
+
+A \textbf{\gls{msr}} is a special control register in an IA-32 CPU, that is not guaranteed to be
+present in future CPU generations (it is not part of the architectural standard). MSRs that carried
+over to future generations and are now guaranteed to be included in future IA-32 or Intel 64 CPUs
+are called ``architectural'' MSRs. To interact with MSRs, the special instructions \code{rdmsr} and
+\code{wrmsr} are used~\cite{x86isa}. These instructions allow atomic read/write operations on
+MSRs\footnote{Detailed description in the IA-32 manual~\cite[sec.~4.2]{ia32}.}.
+
+\subsection{Memory Mapped I/O}
+\label{subsec:mmio}
+
+\textbf{\gls{mmio}} is a way for the CPU to perform I/O operations with an external device.
+Registers of external devices are mapped to the same address space as the main memory, thus a
+memory address can either be a location in physical memory, or belong to a device's register. Read
+and write operations are then performed by reading or writing the address the register is mapped
+to.
+
+\subsection{Programmable Interval Timer}
+\label{subsec:pit}
+
+The \textbf{\gls{pit}}\footnote{Specifically the Intel 8253/8254.} is a hardware timer from the
+original IBM PC. It consists of multiple decrementing counters and can generate a signal (for
+example an interrupt) once 0 is reached. This can be used to control a preemptive\footnote{A
+  scheduler is called ``preemptive'', when it is able to forcefully take away the CPU from the
+  currently working thread, even when the thread did not signal any form of completion.} scheduler or
+the integrated PC speaker.
+
+\section{Intel's Interrupt Controllers}
+\label{sec:intelcontrollers}
+
+Because it is logistically difficult to connect every external device directly to the CPU, this
+task is delegated to an interrupt controller, usually located in the system's chipset. Notable
+interrupt controllers (and the only ones considered in this thesis) are the Intel
+\textbf{\gls{pic}} and Intel \textbf{\gls{apic}}.
+
+\subsection{Programmable Interrupt Controller}
+\label{subsec:intelpic}
+
+The Intel 8259A PIC~\cite{pic} is the interrupt controller Intel used in the original Intel
+8086\footnote{The 8259 was used in the Intel 8080 and 8085, the 8259A is a revised version for the
+  Intel 8086}, the ``father'' of the x86 processor architecture. A single PIC has 8 interrupt lines
+for external devices, but multiple PICs can be cascaded for a maximum of \(8 \cdot 8 = 64\)
+interrupt lines with 9 PICs. The most common PIC configuration supports 15 IRQs with two PICs: A
+slave, connected to interrupt line 2 of the master, which is connected to the CPU\footnote{This
+  configuration is called the \textbf{\gls{pcat pic architecture}}, as it was used in the IBM
+  PC/AT~\cite[sec.~1.13]{pcat}.}.
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.3\textwidth}
+    \includesvg[width=1.0\linewidth]{img/mp_spec_pic_configuration.svg}
+  \end{subfigure}
+  \caption{The PC/AT PIC architecture~\cite[sec.~1.13]{pcat}.}
+  \label{fig:pcatpic}
+\end{figure}
+
+If multiple interrupts get requested simultaneously, the PIC decides which one to service first
+based on its \textbf{\gls{interrupt priority}}. The PIC IRQ priorities are determined by the used
+interrupt lines, IRQ0 has the highest priority.
+
+The PIC interrupt handling sequence can be briefly outlined as follows:
+
+\begin{enumerate}
+  \item When the PIC receives an interrupt from a device (PIC interrupts are edge-triggered with high pin
+        polarity), it sets the corresponding bit in its \textbf{\gls{irr}}\footnote{Received IRQs that are
+          requesting servicing are marked in the IRR.}
+  \item If this interrupt is unmasked, an IRQ is sent to the CPU
+  \item The CPU acknowledges the IRQ
+  \item The PIC sets the corresponding bit in its \textbf{\gls{isr}}\footnote{IRQs that are being serviced
+          are marked in the ISR. To reduce confusion, interrupt service routines will be denoted as
+          ``interrupt handler'' instead of ``ISR''.} and clears the previously set bit in the IRR. If the
+        same interrupt occurs again, it can now be queued a single time in the IRR\@.
+  \item When the interrupt has been handled by the OS, it sends an EOI to the PIC, which clears the
+        corresponding bit in the ISR\@.
+\end{enumerate}
+
+With the introduction of multiprocessor systems and devices with an ever-increasing need for large
+amounts of interrupts (like high-performance networking hardware), the PIC reached its
+architectural limits:
+
+\begin{itemize}
+  \item Multiple CPU cores require sending IPIs for initialization and coordination, which is not possible
+        using the PIC\@.
+  \item The PIC is hardwired to a single CPU core. It can be inefficient to handle the entire interrupt
+        workload on a single core.
+  \item The IRQ priorities depend on how the devices are physically wired to the PIC\@.
+  \item The PC/AT PIC architecture only has a very limited number of interrupt lines.
+  \item The PIC does not support MSIs, which allow efficient handling of PCI interrupts.
+\end{itemize}
+
+\subsection{Advanced Programmable Interrupt Controller}
+\label{subsec:intelapic}
+
+The original Intel 82489DX discrete APIC was introduced with the Intel i486 processor. It consisted
+of two parts: A \textbf{\gls{local apic}}, responsible for receiving special \textbf{\glspl{local
+    interrupt}}, and external interrupts from the second part, the \textbf{\gls{io apic}}. Unlike in
+modern systems, the i486's local APIC was not integrated into the CPU core (hence ``discrete''),
+see \autoref{fig:discreteapic}.
+
+The i486 was superseded by the Intel P54C\footnote{The Intel P54C is the successor of the Intel P5,
+  the first Pentium processor.}, which contained an integrated local APIC for the first time, see
+\autoref{fig:integratedapic}\footnote{This is now the default configuration.}.
+
+The APIC was designed to fix the shortcomings of the PIC, specifically regarding multiprocessor
+systems:
+
+\begin{itemize}
+  \item Each CPU core contains its own local APIC. It has the capabilities to issue IPIs and communicate
+        with the chipset I/O APIC. Also, it includes the APIC timer, which can be used for per-core
+        scheduling.
+  \item The chipset I/O APIC allows configuration on a per-interrupt basis (priorities, destination,
+        trigger mode or pin polarity are all configurable). Also, it is able to send interrupts to
+        different CPU cores, allowing the efficient processing of large amounts of
+        interrupts\footnote{There are tools that dynamically reprogram the I/O APIC to distribute
+          interrupts to available CPU cores, depending on heuristics of past interrupts (IRQ-balancing).}.
+  \item The order in which external devices are connected to the I/O APIC is flexible.
+  \item The APIC architecture supports MSIs.
+\end{itemize}
+
+To allow distributing the APIC hardware between local APICs of multiple CPU cores and I/O APICs,
+the APIC system sends messages over a bus. In the Intel P6 and original Pentium processors a
+dedicated APIC bus is used, but since the Intel Pentium 4 and Xeon processors the chipset's system
+bus is used instead (see \autoref{fig:systemvsapicbus})\footnote{The Intel Core microarchitecture
+  is based on the P6 architecture (replacing the Pentium 4's NetBurst architecture), but still uses
+  the system bus instead of a discrete bus.}. Using the system bus is considered the default in this
+document.
+
+Because the order in which external devices are connected to the interrupt controller is flexible
+in the APIC architecture, but fixed in the PC/AT PIC architecture, there can be deviations in
+device-to-IRQ mappings between the PIC and APIC interrupt controllers. To handle this, ACPI
+provides information about how the PIC compatible interrupts (IRQ0 to IRQ15) map to ACPI's GSIs in
+the MADT, which has to be taken into account by the os when operating with an APIC. The mapping
+information for a single interrupt will be called \textbf{\gls{irq override}}.
+
+There have been different revisions on the APIC architecture after the original, discrete APIC,
+notably the \textbf{\gls{xapic}} and \textbf{\gls{x2apic}} architectures. This thesis is mostly
+concerned about the older xApic architecture\footnote{The x2Apic architecture is backwards
+  compatible to the xApic architecture, also, QEMU's TCG does not support the x2Apic architecture.}.
+A notable difference between xApic and x2Apic architectures is the register access: xApic uses
+32-bit MMIO based register access, while x2Apic uses an MSR based register access, which allows
+atomic register access to the 32- and 64-bit wide APIC control MSRs~\cite[sec.~3.11.12]{ia32}.
+
+\section{PC/AT Compatibility}
+\label{sec:pcatcompat}
+
+For compatibility to older computer systems, two cascaded PICs are usually present in current
+computer systems (see \autoref{fig:discreteapic}/\autoref{fig:integratedapic}). The local APIC can
+be initialized to operate with these PICs instead of the I/O APIC, this is called
+\textbf{\gls{virtual wire mode}}. It is possible to operate with both the PIC and I/O APIC as
+controllers for external interrupts in ``mixed mode'', but this is very uncommon. Because the
+presence of a local APIC usually guarantees the presence of an I/O APIC, this thesis only focuses
+on interrupt handling with either two PICs (\textbf{\gls{pic mode}}), in case no APIC is available,
+or the full APIC architecture (local APIC and I/O APIC in \textbf{\gls{symmetric io
+    mode}})\footnote{For more information on operating modes, consult the MultiProcessor
+  specification~\cite[sec.~3.6.2.1]{mpspec}.}.
+
+To switch from PIC to symmetric I/O mode, some\footnote{References to the IMCR are only found in
+  the relatively old MultiProcessor specification~\cite{mpspec}.} hardware\footnote{QEMU does not
+  emulate the IMCR.} provides the \textbf{\gls{imcr}}, a special register that controls the physical
+connection of the PIC to the CPU. In the original discrete APIC architecture, the IMCR can choose
+if either the PIC or local APIC is connected to the CPU (see \autoref{fig:discreteapic}), since the
+xApic architecture the IMCR only connects or disconnects the PIC to the local APIC's LINT0 pin (see
+\autoref{fig:integratedapic}). When the IMCR is set to connect the PIC, and the xApic ``global
+enable/disable'' flag is unset (see \autoref{subsec:lapicenable}), the system is functionally
+equivalent to an IA-32 CPU without an integrated local APIC~\cite[sec.~3.11.4.3]{ia32}.
+
+Specifics on handling PC/AT compatible external interrupts follow in \autoref{subsec:ioapicpcat}.
+
+\section{Interrupt Handling in hhuOS}
+\label{sec:currenthhuos}
+
+In hhuOS, external interrupts are handled in two steps:
+
+\begin{enumerate}
+  \item After an IRQ is sent by an interrupt controller, the CPU looks up the interrupt handler address in
+        the IDT. In hhuOS, every IDT entry contains the address of the \code{dispatch} function (see
+        \autoref{lst:irqdispatch}), which is invoked with the vector number of the interrupt.
+  \item The \code{dispatch} function determines which interrupt handler will be called, based on the
+        supplied vector number. In hhuOS, interrupt handlers are implemented through the
+        \code{InterruptHandler} interface (see \autoref{lst:irqhandler}), that provides the \code{trigger}
+        function, which contains the interrupt handling routine. To allow the \code{dispatch} function to
+        find the desired interrupt handler, it has to be registered to a vector number by the OS
+        beforehand. This process is handled by the \code{plugin} function of the interrupt handler
+        interface, which uses the interrupt dispatcher's \code{assign} function (see
+        \autoref{lst:irqassign}) to register itself to the correct vector number. HhuOS supports assigning
+        multiple interrupt handlers to a single interrupt vector and cascading interrupts.
+\end{enumerate}
+
+\begin{codeblock}[label=lst:irqhandler]{The InterruptHandler interface (InterruptHandler.h)~\cite{hhuos}}{C++}
+    \cppfile{code/interrupthandler_def.cpp}
+\end{codeblock}
+
+\begin{codeblock}[label=lst:irqassign]{Assigning an interrupt handler (InterruptDispatcher.cpp)~\cite{hhuos}}{C++}
+    \cppfile{code/interruptdispatcher_assign.cpp}
+\end{codeblock}
+
+\begin{codeblock}[label=lst:irqdispatch]{Triggering an interrupt handler (InterruptDispatcher.cpp)~\cite{hhuos}}{C++}
+    \cppfile{code/interruptdispatcher_dispatch.cpp}
+\end{codeblock}
+
+To prevent the need of interacting with a specific interrupt controller implementation (e.g.
+\code{Pic} class) or the dispatcher, a system service (the \code{InterruptService}) is implemented
+to expose this functionality to other parts of the OS (it allows e.g.\ registering interrupt
+handlers or masking and unmasking interrupts).
+
+Currently, hhuOS utilizes the PIT to manage the global system time (see \autoref{lst:pithandler}),
+which in turn is used to trigger hhuOS's preemptive round-robin scheduler (the \code{Scheduler}
+class).
+
+\begin{codeblock}[label=lst:pithandler]{The PIT interrupt handler (Pit.cpp)~\cite{hhuos}}{C++}
+    \cppfile{code/pit_trigger.cpp}
+\end{codeblock}
+
+The PIT and other devices are initialized before the system entry point, in the
+\code{System::initializeSystem} function.

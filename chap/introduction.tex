@@ -1,0 +1,26 @@
+\chapter{Introduction}
+\label{ch:introduction}
+
+Computer systems are very useful, because they are able to interact with the ``outside world'', for
+instance by reading values from sensors, controlling external appliances or interacting with a user
+through human interface devices. In each of these scenarios, the system's CPU has to react to
+``external changes'', like a key press or sensor reading. An efficient hardware solution to this
+problem are ``interrupts''.
+
+In this thesis, support for the ``APIC'', a modern and widely used interrupt controller
+architecture, introduced by Intel for the Pentium 4 processor, will be implemented into hhuOS, ``A
+small operating system for learning purposes''~\cite{hhuos}. This support will cover a complete
+replacement of the older ``PIC'' interrupt controller, introduction of an alternative timer - a
+part of the APIC architecture - for scheduling, and utilizing the APIC to boot multiprocessor
+systems.
+
+The following chapter explains important background concepts, in \autoref{ch:implementation} the
+required steps to use the APIC and their implementation are explained in general,
+\autoref{ch:verification} deals with the verification process of the developed software on emulated
+and real hardware, and \autoref{ch:conclusion} draws conclusions regarding the previous
+implementation and future improvements.
+
+Specific details on the code created during this thesis are given in \autoref{ch:listings},
+separated from the main body.
+
+\clearpage
