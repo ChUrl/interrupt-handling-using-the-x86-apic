@@ -38,7 +38,7 @@ Specifically, QEMU provides the current register state of all local and I/O APIC
 \end{itemize}
 
 Although hhuOS is developed mainly for learning purposes, every OS' core task remains to be the management of computer hardware.
-For this reason, this implementation was additionally tested on a \textquote{ThinkPad T60s} with an Intel \textquote{Core 2 Duo} processor.
+For this reason, this implementation was additionally tested on a \textquote{ThinkPad X60s} with an Intel \textquote{Core 2 Duo} processor.
 By providing internal status data through the virtual file system, implemented features (including booting additional APs) were verified on this very specific set of hardware.
 
 More specifically, information about detected and enabled local APICs and the I/O APIC, register values from the BSP's LVT and the REDTBL, the contents of the PIC's \textbf{\gls{imr}}, and the number of occurred interrupts by core (similar to \code{/proc/interrupts} in Linux~\autocite{linux}) are exposed on the path \code{/device/apic/}.
@@ -54,7 +54,7 @@ This way, the following things could be verified on real hardware:
           Interestingly, this was easier to verify on real hardware than in QEMU, because QEMU usually instantly crashes when interrupts are enabled on an AP beside the BSP\@.
           Also, redirecting the keyboard interrupt in QEMU significantly changes the behavior of any key press and renders the keyboard unusable.
           This is expected, as hhuOS' paging is not designed for multiple processors.
-          On the ThinkPad T60s though, it was possible (surprisingly) to use the redirected keyboard interrupt to \code{cat} the \code{/device/apic/irqs} file to observe the interrupt statistics, which showed the keyboard interrupts indeed arriving at a different core than the BSP\@.
+          On the ThinkPad X60s though, it was possible (surprisingly) to use the redirected keyboard interrupt to \code{cat} the \code{/device/apic/irqs} file to observe the interrupt statistics, which showed the keyboard interrupts indeed arriving at a different core than the BSP\@.
           After a certain time, the system crashes on the ThinkPad as well.}.
 \end{itemize}
 

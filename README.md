@@ -1,7 +1,7 @@
 <div align="center">
   <img src="https://coconucos.cs.hhu.de/lehre/bigdata/resources/img/hhu-logo.svg" width=300>
 
-  [![Download](https://img.shields.io/static/v1?label=&message=pdf&color=EE3F24&style=for-the-badge&logo=adobe-acrobat-reader&logoColor=FFFFFF)](/../-/jobs/artifacts/main/file/thesis.pdf?job=latex)
+  [![Download](https://img.shields.io/static/v1?label=&message=pdf&color=EE3F24&style=for-the-badge&logo=adobe-acrobat-reader&logoColor=FFFFFF)](/../-/jobs/artifacts/master/file/document/thesis.pdf?job=latex)
 </div>
 
 # :notebook: &nbsp; Aufgabenbeschreibung
@@ -76,8 +76,7 @@ $ ./run.sh --bios true --file hhuOS.iso
 
 - `src/device/interrupt/apic/*`
 - `src/device/time/ApicTimer.*`
-- `src/device/cpu/Smp.*`
-- `src/device/cpu/smp.asm`
+- `src/device/cpu/smp_*`
 
 # Commit history
 
