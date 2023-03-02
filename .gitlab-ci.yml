@@ -1,0 +1,15 @@
+stages:
+  - build
+
+# Build pdf file
+latex:
+  image: texlive/texlive:latest
+  stage: build
+  script:
+    - apt-get update -qq && apt-get install --no-install-recommends -y inkscape
+    - apt-get autoclean autoremove && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    - latexmk -cd -pdf -shell-escape document/thesis.tex
+  artifacts:
+    paths:
+      - "document/thesis.pdf"
+    expire_in: 1 day
