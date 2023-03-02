@@ -1,10 +1,10 @@
-\makeglossaries
+\makeglossaries{}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Acronyms
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\newacronym{acpi}{ACPI}{\gls{advanced configuration and power interface}}
+\newacronym{acpi}{ACPI}{advanced configuration and power interface}
 \newacronym{aml}{AML}{acpi machine language}
 \newacronym{ap}{AP}{\gls{application processor}}
 \newacronym{apr}{APR}{arbitration priority register}
@@ -12,7 +12,7 @@
 \newacronym{bios}{BIOS}{basic input/output system}
 \newacronym{bsp}{BSP}{\gls{bootstrap processor}}
 \newacronym{cpuid}{CPUID}{cpu identification}
-\newacronym{eoi}{EOI}{\gls{end-of-interrupt}}
+\newacronym{eoi}{EOI}{end of interrupt}
 \newacronym{esr}{ESR}{error status register}
 \newacronym{gdt}{GDT}{global descriptor table}
 \newacronym{gdtr}{GDTR}{global descriptor table register}
@@ -34,14 +34,14 @@
 \newacronym{mmio}{MMIO}{memory mapped input/output}
 \newacronym{msr}{MSR}{model specific register}
 \newacronym{msi}{MSI}{\gls{message-signaled interrupt}}
-\newacronym{nmi}{NMI}{\gls{non-maskable interrupt}}
+\newacronym{nmi}{NMI}{non-maskable interrupt}
 \newacronym{pci}{PCI}{peripheral component interconnect}
 \newacronym{pic}{PIC}{programmable interrupt controller}
-\newacronym{pit}{PIT}{\gls{programmable interval timer}}
+\newacronym{pit}{PIT}{programmable interval timer}
 \newacronym{redtbl}{REDTBL}{redirection table}
 \newacronym{sipi}{SIPI}{startup inter-processor interrupt}
 \newacronym{smi}{SMI}{system management interrupt}
-\newacronym{smp}{SMP}{\gls{symmetric multiprocessing}}
+\newacronym{smp}{SMP}{symmetric multiprocessing}
 \newacronym{svr}{SVR}{\gls{spurious interrupt vector register}}
 \newacronym{tmr}{TMR}{trigger-mode register}
 \newacronym{tpr}{TPR}{\gls{task-priority register}}
@@ -57,187 +57,107 @@
 %   description={}
 % }
 
-\newglossaryentry{advanced configuration and power interface}{
-  name={advanced configuration and power interface},
-  description={a standard for operating systems to allow software to query information about the system hardware configuration}
-}
-\newglossaryentry{apic timer}{
+\newglossaryentry{apic timer}{%
   name={APIC timer},
   description={a hardware timer that can trigger periodic interrupts by using a counter, integrated into the local APIC}
 }
-\newglossaryentry{application processor}{
+\newglossaryentry{application processor}{%
   name={application processor},
-  description={a processor inside an SMP system, e.g. a CPU core}
+  description={a processor inside an SMP system, e.g.\ a CPU core}
 }
-\newglossaryentry{bootstrap processor}{
+\newglossaryentry{bootstrap processor}{%
   name={bootstrap processor},
   description={the application processor used to boot an SMP system}
 }
-\newglossaryentry{cascaded interrupt}{
-  name={cascaded interrupt},
-  description={an interrupt, serviced during another interrupt handler}
+\newglossaryentry{discrete apic}{%
+  name={discrete APIC},
+  description={the predecessor of the xApic architecture where the local APIC was not integrated into the CPU core, register access is handled through MMIO}
 }
-\newglossaryentry{end-of-interrupt}{
-  name={end-of-interrupt},
-  description={a notification to an interrupt controller that an interrupt has been handled}
-}
-\newglossaryentry{external interrupt}{
-  name={external interrupt},
-  description={an interrupt from an external hardware device}
-}
-\newglossaryentry{global system interrupt}{
+\newglossaryentry{global system interrupt}{%
   name={global system interrupt},
   description={an abstraction used by ACPI to decouple interrupts from hardware interrupt lines}
 }
-\newglossaryentry{ia32 apic base msr}{
-  name={IA32\textunderscore{}APIC\textunderscore{}BASE MSR},
-  description={an x86 architectural MSR that contains the local APIC's physical MMIO address and the xApic global enable/disable flag}
-}
-\newglossaryentry{io apic}{
+\newglossaryentry{io apic}{%
   name={I/O APIC},
   description={a part of the APIC architecture inside the chipset, responsible for receiving external interrupts}
 }
-\newglossaryentry{init ipi}{
+\newglossaryentry{init ipi}{%
   name={INIT IPI},
   description={an interprocessor interrupt sent from the BSP to the APs, to begin the AP initialization process}
 }
-\newglossaryentry{inter-processor interrupt}{
+\newglossaryentry{inter-processor interrupt}{%
   name={inter-processor interrupt},
   description={an interrupt sent between CPU cores}
 }
-\newglossaryentry{interrupt}{
-  name={interrupt},
-  description={a request for the CPU to handle an event}
-}
-\newglossaryentry{interrupt command register}{
+\newglossaryentry{interrupt command register}{%
   name={interrupt command register},
   description={a register of the local APIC used to issue interprocessor interrupts}
 }
-\newglossaryentry{interrupt controller}{
-  name={interrupt controller},
-  description={a hardware component designated to receive interrupts and forward them to the CPU}
-}
-\newglossaryentry{interrupt handler}{
-  name={interrupt handler},
-  description={a function designated to handle a specific interrupt}
-}
-\newglossaryentry{interrupt mode control register}{
+\newglossaryentry{interrupt mode control register}{%
   name={interrupt mode control register},
   description={a register present in some systems to choose the physically connected interrupt controller}
 }
-\newglossaryentry{interrupt priority}{
-  name={interrupt priority},
-  description={the interrupt priority decides the order, in which multiple, simultaneously arriving interrupts, are forwarded to the CPU}
-}
-\newglossaryentry{interrupt vector}{
-  name={interrupt vector},
-  description={a slot of an interrupt handler in the IDT}
-}
-\newglossaryentry{interrupt request register}{
+\newglossaryentry{interrupt request register}{%
   name={interrupt request register},
   description={a register, part of the PIC and local APIC, which keeps track of received interrupts}
 }
-\newglossaryentry{in-service register}{
+\newglossaryentry{in-service register}{%
   name={in-service register},
   description={a register, part of the PIC and local APIC, which keeps track of interrupts that are being serviced}
 }
-\newglossaryentry{irq override}{
-  name={IRQ override},
+\newglossaryentry{irq override}{%
+  name={interrupt override},
   description={information from ACPI, that describes how interrupt lines correspond to global system interrupts}
 }
-\newglossaryentry{local apic}{
+\newglossaryentry{local apic}{%
   name={local APIC},
   description={a part of the APIC architecture inside a CPU core, responsible for receiving local interrupts and communication with the I/O APIC}
 }
-\newglossaryentry{local interrupt}{
+\newglossaryentry{local interrupt}{%
   name={local interrupt},
   description={an CPU internal interrupt handled by the local APIC, like the APIC timer interrupt}
 }
-\newglossaryentry{local vector table}{
+\newglossaryentry{local vector table}{%
   name={local vector table},
   description={a set of registers, part of the local APIC, that configure how local interrupts are handled}
 }
-\newglossaryentry{masking}{
-  name={masking},
-  description={marking an interrupt as ignored}
-}
-\newglossaryentry{memory-mapped io}{
-  name={memory-mapped I/O},
-  description={a way to access a devices registers by mapping them to addresses in the main memory}
-}
-\newglossaryentry{message-signaled interrupt}{
+\newglossaryentry{message-signaled interrupt}{%
   name={message-signaled interrupt},
   description={an interrupt sent in-band over a PCI-bus}
 }
-\newglossaryentry{non-maskable interrupt}{
-  name={non-maskable interrupt},
-  description={a system critical interrupt that cannot be masked}
-}
-\newglossaryentry{pcat pic architecture}{
-  name={PC/AT PIC architecture},
-  description={an interrupt controller configuration using two cascaded PICs for a total of 15 interrupt lines}
-}
-\newglossaryentry{pic mode}{
+\newglossaryentry{pic mode}{%
   name={PIC mode},
   description={only use the PIC for interrupt handling, like the PC/AT}
 }
-\newglossaryentry{pin polarity}{
-  name={pin polarity},
-  description={describes if a signal is represented by either a high or low level change or theshold}
-}
-\newglossaryentry{programmable interval timer}{
-  name={programmable interval timer},
-  description={a hardware timer that can trigger periodic interrupts by using a counter}
-}
-\newglossaryentry{protected mode}{
-  name={protected mode},
-  description={the 32-bit operating mode of x86 CPUs which includes security features such as paging}
-}
-\newglossaryentry{real mode}{
-  name={real mode},
-  description={an operating mode of x86 CPUs with 16-bit segmented memory addressing, resulting in 1 MB of usable memory with 20-bit address width}
-}
-\newglossaryentry{redirection table}{
+\newglossaryentry{redirection table}{%
   name={redirection table},
   description={a set of registers, part of the I/O APIC, that configure how external interrupts are handled}
 }
-\newglossaryentry{spurious interrupt}{
-  name={spurious interrupt},
-  description={an interrupt that is triggered in case an original interrupt is no longer valid on delivery}
-}
-\newglossaryentry{spurious interrupt vector register}{
+\newglossaryentry{spurious interrupt vector register}{%
   name={spurious interrupt vector register},
   description={a register of the local APIC which contains the APIC software enable flag and the spurious interrupt vector}
 }
-\newglossaryentry{startup ipi}{
+\newglossaryentry{startup ipi}{%
   name={STARTUP IPI},
   description={an interprocessor interrupt sent from the BSP to the APs, to load the AP startup routine and finish AP initialization}
 }
-\newglossaryentry{symmetric io mode}{
+\newglossaryentry{symmetric io mode}{%
   name={symmetric I/O mode},
   description={use the I/O APIC in combination with the local APIC for interrupt handling in multiprocessor systems}
 }
-\newglossaryentry{symmetric multiprocessing}{
-  name={symmetric multiprocessing},
-  description={a computer architecture where multiple CPUs operate on a shared main memory}
-}
-\newglossaryentry{task-priority register}{
+\newglossaryentry{task-priority register}{%
   name={task-priority register},
   description={a register of the local APIC which determines interrupt handling order and priority theshold}
 }
-\newglossaryentry{trigger mode}{
-  name={trigger mode},
-  description={describes if a signal is represented by either a change in level or a level theshold}
-}
-\newglossaryentry{virtual wire mode}{
+\newglossaryentry{virtual wire mode}{%
   name={virtual wire mode},
   description={use the local APIC in combination with the PIC as external interrupt controller}
 }
-\newglossaryentry{xapic}{
+\newglossaryentry{xapic}{%
   name={xApic},
   description={a revision of the APIC architecture, register access is handled through MMIO}
 }
-\newglossaryentry{x2apic}{
+\newglossaryentry{x2apic}{%
   name={x2Apic},
   description={a revision of the APIC architecture, register access is handled through MSRs}
 }

@@ -1,82 +1,64 @@
 \chapter{Verification}
 \label{ch:verification}
 
-Common techniques for testing software include component-based tests, like ``unit tests'', and
-``end-to-end tests'', where the complete functionality of a software system with all its parts is
-tested. As unit testing is mostly suitable for independent slices of a system's application logic,
-it is not very useful for testing low-level software designed to run directly on hardware devices.
+Common techniques for testing software include component-based tests, like \textquote{unit tests}, and \textquote{end-to-end tests}, where the complete functionality of a software system with all its parts is tested.
+As unit testing is mostly suitable for independent slices of a system's application logic, it is not very useful for testing low-level software designed to run directly on hardware devices.
 
-This chapter deals with the process and results of testing hhuOS with the APIC implementation
-developed during this thesis.
+This chapter deals with the process and results of testing hhuOS with the APIC implementation developed during this thesis.
 
 \clearpage
 
 \section{Methods of Verification}
 \label{sec:verificationmethods}
 
-This application can be tested by running the entire hhuOS operating system on both emulated and
-real hardware, and monitoring its state of operation\footnote{There is almost no logic that can be
-  tested isolated or hardware independently.}.
+This application can be tested by running the entire hhuOS operating system on both emulated and real hardware, and monitoring its state of operation\footnote{
+  There is almost no logic that can be tested isolated or hardware independently.}.
 
 This can be done in multiple ways:
 
 \begin{itemize}
-  \item When running hhuOS in an emulated environment, the current machine state can be inspected
-        directly\footnote{QEMU offers the ``QEMU monitor'' to query information about specific hardware
-          components, like the local or I/O APIC (\code{info lapic} and \code{info pic}).}.
-  \item To test the functionality of an interrupt controller specifically, stub interrupt handlers can be
-        used to verify that a specific interrupt (like an IPI) has been registered.
-  \item By attaching a debugger (very simple for emulated hardware), it can be observed that e.g.\ the
-        timer interrupt is correctly increasing the timestamp for each running CPU\@.
-  \item By exposing some of the APIC's internal data through hhuOS' virtual file system, end-to-end
-        verification can be performed from the system itself, as debugging and monitoring is significantly
-        more difficult when running on real hardware.
-  \item Because the interrupt controller is a vital part for many components of an operating system,
-        observing a successful boot is already a significant indicator for a correct implementation.
+  \item When running hhuOS in an emulated environment, the current machine state can be inspected directly\footnote{
+          QEMU offers the \textquote{QEMU monitor} to query information about specific hardware components, like the local or I/O APIC (\code{info lapic} and \code{info pic}).}.
+  \item To test the functionality of an interrupt controller specifically, stub interrupt handlers can be used to verify that a specific interrupt (like an IPI) has been registered.
+  \item By attaching a debugger (very simple for emulated hardware), it can be observed that e.g.\ the timer interrupt is correctly increasing the timestamp for each running CPU\@.
+  \item By exposing some of the APIC's internal data through hhuOS' virtual file system, end-to-end verification can be performed from the system itself, as debugging and monitoring is significantly more difficult when running on real hardware.
+  \item Because the interrupt controller is a vital part for many components of an operating system, observing a successful boot is already a significant indicator for a correct implementation.
 \end{itemize}
 
 \section{Results}
 \label{sec:verificationresults}
 
-QEMU was used as the main development platform, the implemented features were tested by using the
-QEMU monitor. Specifically, QEMU provides the current register state of all local and I/O APICs, by
-attaching a debugger to the running operating system correct behavior was observed on the emulated
-hardware level:
+QEMU was used as the main development platform, the implemented features were tested by using the QEMU monitor.
+Specifically, QEMU provides the current register state of all local and I/O APICs, by attaching a debugger to the running operating system correct behavior was observed on the emulated hardware level:
 
 \begin{itemize}
-  \item Working local interrupts - verified by observing the local APIC's IRR\@.
-  \item Propagation of interrupts to the CPU - verified by observing the local APIC's ISR\@.
-  \item A working local APIC timer - verified by observing the APIC timer's registers.
+  \item Working local interrupts -- verified by observing the local APIC's IRR\@.
+  \item Propagation of interrupts to the CPU -- verified by observing the local APIC's ISR\@.
+  \item A working local APIC timer -- verified by observing the APIC timer's registers.
 \end{itemize}
 
-Although hhuOS is developed mainly for learning purposes, every OS' core task remains to be the
-management of computer hardware. For this reason this implementation was additionally tested on a
-``ThinkPad T60s'' with an Intel ``Core 2 Duo'' processor. By providing internal status data through
-the virtual file system, implemented features (including booting additional APs) were verified on
-this very specific set of hardware.
+Although hhuOS is developed mainly for learning purposes, every OS' core task remains to be the management of computer hardware.
+For this reason, this implementation was additionally tested on a \textquote{ThinkPad T60s} with an Intel \textquote{Core 2 Duo} processor.
+By providing internal status data through the virtual file system, implemented features (including booting additional APs) were verified on this very specific set of hardware.
 
-More specifically, information about detected and enabled local APICs and the I/O APIC, register
-values from the BSP's LVT and the REDTBL, the contents of the PIC's \textbf{\gls{imr}}, and amounts
-of occurred interrupts by core (similar to \code{/proc/interrupts} in Linux~\cite{linux}]) are
-exposed on the path \code{/device/apic/}. This way, the following things could be verified on real
-hardware:
+More specifically, information about detected and enabled local APICs and the I/O APIC, register values from the BSP's LVT and the REDTBL, the contents of the PIC's \textbf{\gls{imr}}, and the number of occurred interrupts by core (similar to \code{/proc/interrupts} in Linux~\autocite{linux}) are exposed on the path \code{/device/apic/}.
+This way, the following things could be verified on real hardware:
 
 \begin{itemize}
-  \item The APIC is indeed used instead of the PIC - verified by observing the PIC's IMR\@.
-  \item Successful MMIO for local and I/O APIC - verified by observing the LVT and REDTBL\@.
-  \item Devices ``plugging in'' to the APIC instead of the PIC - verified by observing the LVT and
-        REDTBL\@.
-  \item Interrupt handlers are called correctly - verified by using the keyboard.
-  \item Working startup of additional APs - verified by checking the state of the AP's local APICs and
-        observing the system log.
-  \item Handling interrupts on another AP - verified by redirecting the keyboard interrupt to another
-        processor and observing the number of occurred keyboard interrupts on this
-        processor\footnote{Interestingly, this was easier to verify on real hardware than in QEMU, because
-          QEMU usually instantly crashes when interrupts are enabled on an AP beside the BSP. Also,
-          redirecting the keyboard interrupt in QEMU significantly changes the behaviour of any key press and
-          renders the keyboard unusable. This is expected, as hhuOS' paging is not designed for multiple
-          processors. On the ThinkPad T60s though, it was possible (surprisingly) to use the redirected
-          keyboard interrupt to \code{cat} the \code{/device/apic/irqs} file to observe the interrupt
-          statistics, which showed the keyboard interrupts arriving on a different core than the BSP. After a
-          certain time, the system crashes on the ThinkPad aswell.}.
+  \item The APIC is indeed used instead of the PIC -- verified by observing the PIC's IMR\@.
+  \item Successful MMIO for local and I/O APIC -- verified by observing the LVT and REDTBL\@.
+  \item Devices \textquote{plugging in} to the APIC instead of the PIC -- verified by observing the LVT and REDTBL\@.
+  \item Interrupt handlers are called correctly -- verified by using the keyboard.
+  \item Working startup of additional APs -- verified by checking the state of the AP's local APICs and observing the system log.
+  \item Handling interrupts on another AP -- verified by redirecting the keyboard interrupt to another processor and observing the number of occurred keyboard interrupts on this processor\footnote{
+          Interestingly, this was easier to verify on real hardware than in QEMU, because QEMU usually instantly crashes when interrupts are enabled on an AP beside the BSP\@.
+          Also, redirecting the keyboard interrupt in QEMU significantly changes the behavior of any key press and renders the keyboard unusable.
+          This is expected, as hhuOS' paging is not designed for multiple processors.
+          On the ThinkPad T60s though, it was possible (surprisingly) to use the redirected keyboard interrupt to \code{cat} the \code{/device/apic/irqs} file to observe the interrupt statistics, which showed the keyboard interrupts indeed arriving at a different core than the BSP\@.
+          After a certain time, the system crashes on the ThinkPad as well.}.
 \end{itemize}
+
+It should be noted, that e.g.\ the REDTBL observation requires the same MMIO registers as the functionality that is to be verified, which would allow for wrong conclusions if the MMIO mechanism was faulty.
+It is very unlikely though that all the correct values are provided accidentally.
+
+\cleardoublepage

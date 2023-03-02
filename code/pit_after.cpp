@@ -1,4 +1,4 @@
-void Pit::trigger(const InterruptFrame &frame) {
+void Pit::trigger() {
     time.addNanoseconds(timerInterval); // Increase system time
 
     // Don't use PIT for scheduling when the APIC timer is enabled

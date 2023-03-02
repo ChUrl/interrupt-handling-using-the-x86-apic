@@ -1,0 +1,58 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+title Apic::enable()
+
+participant Apic
+participant Acpi
+participant LocalApic
+participant IoApic
+participant ApicErrorHandler
+participant ApicTimer
+
+==Prepare Initialization==
+
+group Create Devices
+Apic -[hidden]> ApicTimer
+    Apic -> Acpi: Request system information
+    Apic <- Acpi: Provide MADT structures
+    Apic -> LocalApic ++: Instantiate LocalApic
+    Apic -> IoApic ++: Instantiate IoApic
+end
+
+group Initialize Local APIC
+Apic -[hidden]> ApicTimer
+    Apic -> LocalApic: Enable xApic mode
+    LocalApic -> LocalApic: Set IMCR
+    LocalApic -> LocalApic: MMIO allocation
+==Actual Component Initialization==
+    Apic -> LocalApic: Initialize current local APIC
+    LocalApic -> LocalApic: Set LVT and NMI
+    LocalApic -> LocalApic: Set spurious vector
+    LocalApic -> LocalApic: Synchronize APR
+    LocalApic -> LocalApic: Allow all priorities
+end
+
+group Initialize I/O APIC
+Apic -[hidden]> ApicTimer
+    Apic -> IoApic: Initialize I/O APIC
+    IoApic -> IoApic: MMIO allocation
+    IoApic -> IoApic: Set REDTBL, NMI
+end
+
+group Initialize APIC error handler
+Apic -[hidden]> ApicTimer
+    Apic -> ApicErrorHandler ++: Instantiate handler
+    Apic -> ApicErrorHandler: Register the interrupt handler
+    Apic -> LocalApic: Allow current error interrupt
+    Apic -> LocalApic: Arm error interrupt
+end
+
+group Initialize APIC timer
+Apic -[hidden]> ApicTimer
+    Apic -> ApicTimer: Calibrate the timer
+    Apic -> ApicTimer ++: Instantiate current timer
+    Apic -> ApicTimer: Register current interrupt handler
+    LocalApic <- ApicTimer: Allow current timer interrupt
+end
+@enduml

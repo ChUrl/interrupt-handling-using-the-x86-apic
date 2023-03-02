@@ -1,41 +1,29 @@
 \chapter{Conclusion}
 \label{ch:conclusion}
 
-In this thesis, support for the APIC was integrated into hhuOS. The implementation supports usage
-of the local APIC in combination with the I/O APIC for regular interrupt handling without the
-PIC\@. Also, the APIC's included timer is used to trigger hhuOS' scheduler, and it is demonstrated
-how to initialize a multiprocessor system using the APIC's IPI capabilities. All of this is
-implemented with real hardware in mind, so ACPI is used to gather system information during runtime
-and adapt the initialization and usage accordingly.
+In this thesis, support for the APIC was integrated into hhuOS\@.
+The implementation supports usage of the local APIC in combination with the I/O APIC for regular interrupt handling without the PIC\@.
+Also, the APIC's included timer is used to trigger hhuOS' scheduler, and it is demonstrated how to initialize a multiprocessor system using the APIC's IPI capabilities.
+All of this is implemented with real hardware in mind, so ACPI is used to gather system information during runtime and adapt the initialization and usage accordingly.
 
 \clearpage
 
 \section{Comparing PIC and APIC Implementations}
 \label{sec:comparingpicapic}
 
-Handling interrupts using the PIC is extremely simple, as seen in hhuOS' PIC implementation.
-Initialization and usage can be performed by using a total of only four different registers, two
-per PIC\footnote{Omitting the infrastructure that is required for both, PIC and APIC, like the IDT
-  or dispatcher.}.
+Handling interrupts using the PIC is simple, as seen in hhuOS' PIC implementation.
+Initialization and usage can be performed by using a total of only four different registers, two per PIC\footnote{
+  Omitting the infrastructure that is required for both, PIC and APIC, like the IDT or dispatcher.}.
 
-In comparison, the code complexity required to use the APIC is very high. The most obvious reason
-is its significantly increased set of features: Local interrupts are special to the APIC, also the
-APIC system is made up of multiple components that require internal communication and individual
-initialization. Additionally, the APIC supports advanced processor topologies with large amounts of
-cores and offers increased flexibility by allowing to configure individual interrupt's vectors,
-destinations, signals and priorities, which results in additional setup.
+In comparison, the code complexity required to use the APIC is very high.
+The most obvious reason is its significantly increased set of features: Local interrupts are special to the APIC, also the APIC system is made up of multiple components that require internal communication and individual initialization.
+Additionally, the APIC supports advanced processor topologies with large numbers of cores and offers increased flexibility by allowing to configure individual interrupts' vectors, destinations, signals and priorities, which results in additional setup.
 
-Another source of complexity that is not present with the PIC is the APIC's variability: With the
-PC/AT architecture, the entire hardware interrupt configuration is known before boot. This is not
-the case when using the APIC, as the amount of interrupt controllers or even the number and order
-of connected devices is only known while the system is running. Parsing this information from ACPI
-tables and allowing the implementation to adapt to different hardware configurations, all while
-maintaining PC/AT compatibility, increases the amount of code by a large margin.
+Another source of complexity that is not present with the PIC is the APIC's variability: With the PC/AT architecture, the entire hardware interrupt configuration is known before boot.
+This is not the case when using the APIC, as the number of interrupt controllers or even the number and order of connected devices is only known while the system is running.
+Parsing this information from ACPI tables and allowing the implementation to adapt to different hardware configurations, all while maintaining PC/AT compatibility, increases the amount of code by a large margin.
 
-In general, all of this effort results in a much more powerful and future-proof system: It is not
-limited to specific hardware configurations, allows scaling to a large amount of interrupts or
-processors, and is required for multiprocessor machines, which equals to almost all modern computer
-systems.
+In general, all of this effort results in a much more powerful and future-proof system: It is not limited to specific hardware configurations, allows scaling to a large amount of interrupts or processors, and is required for multiprocessor machines, which equals almost all modern computer systems.
 
 \section{Future Improvements}
 \label{sec:futureimprov}
@@ -43,65 +31,48 @@ systems.
 \subsection{Dependence on ACPI}
 \label{subsec:acpidependance}
 
-The APIC system requires a supplier of system information during operation, but this must not
-necessarily be ACPI. Systems following Intel's ``MultiProcessor Specification''~\cite{mpspec} can
-acquire the required information by parsing configuration tables similar to ACPI's system
-description tables, but provided in accordance to the MultiProcessor Specification. This would
-increase the amount of systems supported by this APIC implementation, but the general compatibility
-improvement is difficult to quantize, as single-core systems are still supported by the old PIC
-implementation\footnote{The MultiProcessor Specification was (pre-) released in
-  1993~\cite{mpspecpre}, the first ACPI release was in 1996~\cite{acpipre}. Multiprocessor systems
-  between these years would be affected.}.
+The APIC system requires a supplier of system information during operation, but this must not necessarily be ACPI\@.
+Systems following Intel's \textquote{MultiProcessor Specification}~\autocite{mpspec} can acquire the required information by parsing configuration tables similar to ACPI's system description tables, but provided in accordance to the MultiProcessor Specification.
+This would increase the number of systems supported by this APIC implementation, but the general compatibility improvement is difficult to quantize, as single-core systems are still supported by the old PIC implementation\footnote{
+  The \textquote{MultiProcessor Specification} was (pre-) released in 1993~\autocite{mpspecpre}, the first ACPI release was in 1996~\autocite{acpipre}.
+  Multiprocessor systems between these years could be affected.}.
 
-Alternatively, systems that do not support ACPI could be supported partially by utilizing the local
-APIC's virtual wire mode~\cite[sec.~3.6.2.2]{mpspec}. The reliance on information provided in the
-MADT stems mostly from using the I/O APIC as the external interrupt controller. By using the local
-APIC for its local interrupt and multiprocessor functionality, but keeping the PC/AT compatible PIC
-as the external interrupt controller, multiprocessor systems without ACPI could be supported.
+Alternatively, systems that do not support ACPI could be supported partially by utilizing the local APIC's virtual wire mode~\autocite[sec.~3.6.2.2]{mpspec}.
+The reliance on information provided in the MADT stems mostly from using the I/O APIC as the external interrupt controller.
+By using the local APIC for its local interrupt and multiprocessor functionality, but keeping the PC/AT compatible PIC as the external interrupt controller, multiprocessor systems without ACPI could be supported.
 
 \subsection{Discrete APIC and x2Apic}
 \label{subsec:discretex2}
 
-This implementation only supports the xApic architecture, as it's convenient to emulate and the
-x2Apic architecture is fully backwards compatible~\cite[sec.~3.11.12]{ia32}. The original, discrete
-local APIC (Intel 82489DX) is not supported explicitly, which reduces this implementation's
-compatibility to older systems\footnote{Although it is possible that no or only very few
-  modifications are necessary, as this implementation does not utilize many of the xApic's exclusive
-  features~\cite[sec.~3.23.27]{ia32}.}. Supporting the x2Apic architecture does not increase
-compatibility, but using the x2Apic's MSR-based atomic register access is beneficial in
-multiprocessor systems. Newer ACPI versions provide separate x2Apic specific structures in the
-MADT~\cite[sec.~5.2.12.12]{acpi65}, so supporting x2Apic also requires supporting modern ACPI
-versions\footnote{Currently, hhuOS supports ACPI 1.0b~\cite{acpi1}.}.
+This implementation only supports the xApic architecture, as it is convenient to emulate and the x2Apic architecture is fully backwards compatible~\autocite[sec.~3.11.12]{ia32}.
+The original, discrete local APIC (Intel 82489DX) is not supported explicitly, which reduces this implementation's compatibility to older systems\footnote{
+  Although it is possible that no or only very few modifications are necessary, as this implementation does not utilize many of the xApic's exclusive features~\autocite[sec.~3.23.27]{ia32}.}.
+Supporting the x2Apic architecture does not increase compatibility, but using the x2Apic's MSR-based atomic register access is beneficial in multiprocessor systems.
+Newer ACPI versions provide separate x2Apic specific structures in the MADT~\autocite[sec.~5.2.12.12]{acpi65}, so supporting x2Apic also requires supporting modern ACPI versions\footnote{
+  Currently (on 27/02/2023), hhuOS supports ACPI 1.0b~\autocite{acpi1}.}.
 
 \subsection{PCI Devices}
 \label{subsec:pcidevices}
 
-The APIC is capable of handling MSIs, but this is not implemented in this thesis. To support PCI
-devices using the APIC instead of the PIC, either support for MSIs has to be implemented, or ACPI
-has to be used to determine the corresponding I/O APIC interrupt inputs. This is rather
-complicated, as it requires interacting with ACPI using AML~\cite[sec.~6.2.13]{acpi65}, which needs
-an according interpreter\footnote{There exist modular solutions that can be ported to the target
-  OS~\cite{acpica}.}.
+The APIC is capable of handling MSIs, but this is not implemented in this thesis.
+To support PCI devices using the APIC instead of the PIC, either support for MSIs has to be implemented, or ACPI has to be used to determine the corresponding I/O APIC interrupt inputs.
+This is rather complicated, as it requires interacting with ACPI using AML~\autocite[sec.~6.2.13]{acpi65}, which needs an according interpreter\footnote{
+  There exist modular solutions that can be ported to the target OS~\autocite{acpica}.}.
 
 \subsection{Multiprocessor Systems}
 \label{subsec:multiprocessor}
 
-This implementation demonstrates AP startup in SMP systems by using the APIC's IPI mechanism, but
-processors are only initialized to a spin-loop. Because the APIC is a prerequisite for more
-in-depth SMP support, this implementation enables more substantial improvements in this area, like
-distributing tasks to different CPU cores and using the core's local APIC timer to manage a
-core-local scheduler.
+This implementation demonstrates AP startup in SMP systems by using the APIC's IPI mechanism, but processors are only initialized to a spin-loop.
+Because the APIC is a prerequisite for more in-depth SMP support, this implementation enables more substantial improvements in this area, like distributing tasks to different CPU cores and using the cores' local APIC timers to manage core-local schedulers.
 
-Another possible area of improvement is the execution of the interrupt handlers: At the moment,
-each I/O APIC redirects every received interrupt to the BSP's local APIC. Distributing interrupts
-to different CPU cores could improve interrupt handling performance, especially with frequent
-interrupts, like from network devices. This redirection could also happen dynamically
-(``IRQ-balancing''~\cite{irqbalance}), depending on interrupt workload measurements.
+Another possible area of improvement is the execution of the interrupt handlers: At the moment, each I/O APIC redirects every received interrupt to the BSP's local APIC\@.
+Distributing interrupts to different CPU cores could improve interrupt handling performance, especially with frequent interrupts, like from network devices.
+This redirection could be implemented statically for each interrupt or based on priorities, but could also happen dynamically (\textquote{IRQ-balancing}~\autocite{irqbalance}), based on interrupt workload measurements.
 
 \subsection{UEFI Support}
 \label{subsec:uefisupport}
 
-Currently, hhuOS' ACPI system only works with BIOS, so when booting an UEFI system, this
-implementation is disabled, because it requires ACPI. By supporting ACPI on UEFI systems, this
-implementation could also be used for those systems, which would improve compatibility with modern
-platforms.
+Currently, hhuOS' ACPI system only works with BIOS, so when booting an UEFI system, this implementation is disabled, because it requires ACPI\@.
+By supporting ACPI on UEFI systems, this implementation could also be used for those systems, which would improve compatibility with modern platforms.
+
+\cleardoublepage

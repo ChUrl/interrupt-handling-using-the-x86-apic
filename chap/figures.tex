@@ -1,0 +1,24 @@
+\chapter{Figures}
+\label{ch:figures}
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}[b]{0.85\textwidth}
+        \includesvg[width=1.0\linewidth]{diagrams/apic_enable_seq.svg}
+    \end{subfigure}
+    \caption{Enabling the APIC Subsystem.}
+    \label{fig:apicenable}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}[b]{0.85\textwidth}
+        \includesvg[width=1.0\linewidth]{diagrams/apic_smp_enable_seq.svg}
+    \end{subfigure}
+    \caption{Starting SMP Operation.}
+    \label{fig:smpenable}
+\end{figure}
+
+Note that this diagram is slightly misleading, because the application processor runs in parallel and is not susceptible to delays on the BSP\@.
+
+\cleardoublepage

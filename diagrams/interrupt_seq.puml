@@ -1,0 +1,19 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+title Interrupt Handler Execution
+footer The lifetimes symbolize the current code execution by the CPU.
+
+participant main as "Main Thread"
+participant handler as "Interrupt Handler"
+
+==Interrupt Request==
+activate main
+main -> handler --: Switch context to interrupt handler
+activate handler
+handler -> handler: Handle the interrupt
+main <- handler --: Switch back to previous context
+activate main
+==Interrupt Handled==
+
+@enduml

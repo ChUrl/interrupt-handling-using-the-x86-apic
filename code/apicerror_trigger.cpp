@@ -1,5 +1,4 @@
-void ApicErrorHandler::trigger(const InterruptFrame &frame) {
-    // Write/read register: Write first, then read
+void ApicErrorHandler::trigger() {
     // Writing the ESR updates its contents and arms the interrupt again
     LocalApic::writeDoubleWord(LocalApic::ESR, 0);
     uint32_t errors = LocalApic::readDoubleWord(LocalApic::ESR);

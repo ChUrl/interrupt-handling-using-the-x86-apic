@@ -20,65 +20,63 @@
 % Packages
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\RequirePackage{silence} % Silence some warnings
+\WarningFilter{latexfont}{Font shape}
+\WarningFilter{latexfont}{Some font shapres were not available}
+\WarningFilter{latexfont}{Size substitutions with differences}
+\WarningFilter{latex}{`h' float specifier}
+\WarningFilter{latex}{\include should only be used after}
+\WarningFilter{fancyhdr}{\headheight}
+
 \RequirePackage[left=3cm,right=2.5cm,top=3cm,bottom=2.5cm]{geometry}
 
 \RequirePackage[utf8]{inputenc}
 \RequirePackage[T1]{fontenc}
-\RequirePackage[english,ngerman]{babel}
-\RequirePackage{mathtools}
-% \RequirePackage{amssymb} % Produces some errors I don't understand
-\RequirePackage[minted]{tcolorbox}
-% \RequirePackage{minted}
+\RequirePackage[english]{babel} % ngerman
 \RequirePackage{fancyhdr} % For headers
 \RequirePackage{color}
-% \RequirePackage[usenames,dvipsnames]{xcolor} % Option Clash, already loaded by sth else
-\RequirePackage{graphicx}
+\RequirePackage[usenames,dvipsnames]{xcolor}
+% \RequirePackage{amssymb}
+\RequirePackage{amsmath} % tcolorbox should load this anyway, but results in errors?
+\RequirePackage[minted]{tcolorbox} % Load after xcolor, [minted]
+% \RequirePackage{minted}
+% \RequirePackage{graphicx}
 \RequirePackage{tikz}
 \RequirePackage{subcaption} % Floats in floats
 \RequirePackage{float}
-\RequirePackage{multirow} % For tables
+% \RequirePackage{multirow} % For tables
 % \RequirePackage{todonotes}
-\RequirePackage{hyperref} % [hidelinks]
+\RequirePackage[hidelinks]{hyperref} % [hidelinks]
 \RequirePackage{algorithm2e}
 \RequirePackage{tocloft}
-\RequirePackage{listings}
+% \RequirePackage{listings}
 \RequirePackage{textcomp}
 \RequirePackage{ifthen}
-\RequirePackage{pgf} % Not sure if pgf was meant, but pgffor doesn't exist (at least not in my texlive?)
+% \RequirePackage{pgffor}
 \RequirePackage{enumitem}
 
 % Some additions
-
-% Borders around svg figures
-\RequirePackage{svg}
-\RequirePackage{float}
-\floatstyle{boxed}
-\restylefloat{figure}
-
-\RequirePackage{csquotes}
+\RequirePackage[inkscapelatex=false]{svg} % Autoconvert to pdf, don't let latex touch the fonts
+\RequirePackage{csquotes} % \textquote{}
 \RequirePackage{tabularx}
-
-% Extra chapters
 \RequirePackage[acronym,automake,nonumberlist,nogroupskip]{glossaries} % Must be loaded after hyperref, [toc]
 \RequirePackage[page]{appendix} % [toc]
 % \RequirePackage{tocbibind} % Add lists to toc, still needs [heading=bibintoc] for some reason, [nottoc]?
-
-% Font
 \RequirePackage{beton} % Computer Concrete font
-\DeclareFontSeriesDefault[rm]{bf}{sbc} % Computer Concrete does not have bold font
-\RequirePackage{eulerpx} % Math font
+\RequirePackage{eulerpx} % Math font (have no math :()
 \RequirePackage{inconsolata} % Code font
-
-% Group listings by chapter, pretocmd prepends something to a command
+\RequirePackage[activate={true,nocompatibility},final,expansion=false,tracking=true,kerning=true,factor=1100,stretch=10,shrink=10]{microtype} % Sadly, expansion does not work with concrete, as they are not scalable
 \RequirePackage{etoolbox}
-\pretocmd{\chapter}{\addtocontents{listings}{\protect\addvspace{10pt}}}{}{}
+\RequirePackage{siunitx}
+\RequirePackage{setspace}
 
-% Control lot/lof parskip
-\RequirePackage{tocloft}
-
-% Allow referencing subsubsections (don't have those anymore)
-% \setcounter{secnumdepth}{3}
-% \setcounter{tocdepth}{3}
+% Options
+\floatstyle{boxed} % boxes around figures
+\restylefloat{figure}
+\DeclareFontSeriesDefault[rm]{bf}{sbc} % beton Computer Concrete does not have bold font
+\pretocmd{\chapter}{\addtocontents{listings}{\protect\addvspace{10pt}}}{}{} % Group listings by chap
+\sisetup{detect-all}
+% \renewcommand{\baselinestretch}{0.95}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Package settings
@@ -192,9 +190,6 @@
 \def\@thesistype{}
 \newcommand{\thesistype}[1]{\def\@thesistype{#1}}
 
-\def\@glossaryenabled{}
-\newcommand{\glossaryenabled}[1]{\def\@glossaryenabled{#1}}
-
 \def\@listoffiguresenabled{}
 \newcommand{\listoffiguresenabled}[1]{\def\@listoffiguresenabled{#1}}
 
@@ -203,12 +198,6 @@
 
 \def\@listofalgorithmsenabled{}
 \newcommand{\listofalgorithmsenabled}[1]{\def\@listofalgorithmsenabled{#1}}
-
-\def\@hidefigures{}
-\newcommand{\hidefigures}[1]{\def\@hidefigures{#1}}
-
-\def\@hidecode{}
-\newcommand{\hidecode}[1]{\def\@hidecode{#1}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Colors
@@ -284,8 +273,12 @@
   % Table of contents
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-  \tableofcontents
+  \microtypesetup{protrusion=false}
+  \begin{spacing}{0.94} % Hamburger the TOC into two pages really unprofessionally
+    \tableofcontents
+  \end{spacing}
   \cleardoublepage
+  \microtypesetup{protrusion=true}
 
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   % Re-enable fancy headers
@@ -294,34 +287,16 @@
   % \pagenumbering{arabic} % Only number chapters
   \pagestyle{thesis}
 
-  \ifthenelse{\equal{\@glossaryenabled}{true}}
-  {%
-    \setacronymstyle{short-long}
+  % Print Glossary
+  \setacronymstyle{short-long}
+  \printglossary[type=\acronymtype]
+  \cleardoublepage
+  \printglossary
 
-    \printglossary[type=\acronymtype]
-    \cleardoublepage
-
-    \printglossary
-    \cleardoublepage
-  }%
-  {}
-
-  \ifthenelse{\equal{\@hidefigures}{true}}
-  {%
-    \excludecomment{figure}
-    \let\endfigure\relax
-  }%
-  {}
-
-  \ifthenelse{\equal{\@hidecode}{true}}
-  {%
-    \excludecomment{codeblock}
-    \let\endcodeblock\relax
-  }%
-  {}
-
+  \cleardoublepage
   \pagenumbering{arabic}
 }
+% Document Content
 {
   \pagenumbering{gobble}
   \printbibliography % [heading=bibintoc]
@@ -330,8 +305,8 @@
 
   \tcblistof[\chapter*]{listings}{List of Listings}
   % \addcontentsline{toc}{chapter}{List of Listings}
-  %\cleardoublepage
-  \clearpage
+  \cleardoublepage
+  % \clearpage
 
   % The lof/lot linespacing should match the lol linespacing
   \setlength{\cftparskip}{2pt}
@@ -339,24 +314,24 @@
   \ifthenelse{\equal{\@listoftablesenabled}{true}}
   {%
     \listoftables
-    %\cleardoublepage
-    \clearpage
+    \cleardoublepage
+    % \clearpage
   }%
   {}
 
   \ifthenelse{\equal{\@listoffiguresenabled}{true}}
   {%
     \listoffigures
-    %\cleardoublepage
-    \clearpage
+    \cleardoublepage
+    % \clearpage
   }%
   {}
 
   \ifthenelse{\equal{\@listofalgorithmsenabled}{true}}
   {%
     \listofalgorithms
-    %\cleardoublepage
-    \clearpage
+    \cleardoublepage
+    % \clearpage
   }%
   {}
 
@@ -439,7 +414,6 @@
 
 \newcommand{\literature}
 {
-  % Why is this here twice?
   % \bibliography{\literaturebibtexdatei}
   % \bibliographystyle{plain}
 

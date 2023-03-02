@@ -1,8 +1,9 @@
-// Excerpt from the "InterruptDispatcher" class
-void InterruptDispatcher::assign(uint8_t slot, InterruptHandler &isr) {
-    if (handler[slot] == nullptr) {
-        handler[slot] = new Util::ArrayList<InterruptHandler*>;
+// Excerpt from the "assign" function
+void InterruptDispatcher::assign(InterruptVector vec, InterruptHandler &handler) {
+    if (handlers[vec] == nullptr) {
+        // Make space for multiple possible interrupt handlers
+        handlers[vec] = new Util::ArrayList<InterruptHandler *>;
     }
 
-    handler[slot]->add(&isr); // Register an interrupt handler to an interrupt vector
+    handlers[vec]->add(&handler); // Register a handler to a vector
 }

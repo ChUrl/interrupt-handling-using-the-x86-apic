@@ -1,7 +1,7 @@
 % !TeX document-id = {631e44a8-cd91-47da-bf82-1571f8787194}
 % !TeX TXS-program:compile = txs:///pdflatex/[--shell-escape]
 
-\documentclass{class/thesis}
+\documentclass{class/thesis} % [draft]
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Bitte ergänzen Sie Ihre persönlichen Daten innerhalb     %
@@ -12,34 +12,33 @@
 \include{glossary}
 
 \begin{document}
-
-% Capitalize all the names
-\renewcommand{\figureautorefname}{Figure}
-\renewcommand{\tableautorefname}{Table}
-\renewcommand{\partautorefname}{Part} \renewcommand{\appendixautorefname}{Appendix}
-\renewcommand{\chapterautorefname}{Chapter} \renewcommand{\sectionautorefname}{Section}
-\renewcommand{\subsectionautorefname}{Section} \renewcommand{\subsubsectionautorefname}{Section}
-\makeatletter\newcommand{\tcb@cnt@codeblockautorefname}{Listing}\makeatother
-
-% \renewcommand{\clearpage}{}
-% \renewcommand{\cleardoublepage}{}
-
 \begin{thesis}
 
+  % Detect overfull boxes % TODO: Should probably disable this before submitting
+  % \overfullrule=2cm
+
+  % Capitalize all the section names
+  \renewcommand{\figureautorefname}{Figure}
+  \renewcommand{\tableautorefname}{Table}
+  \renewcommand{\partautorefname}{Part}
+  \renewcommand{\appendixautorefname}{Appendix}
+  \renewcommand{\chapterautorefname}{Chapter}
+  \renewcommand{\sectionautorefname}{Section}
+  \renewcommand{\subsectionautorefname}{Section}
+  \renewcommand{\subsubsectionautorefname}{Section}
+  \makeatletter\newcommand{\tcb@cnt@codeblockautorefname}{Listing}\makeatother
+
+  % Chapters
   \include{chap/introduction}
   \include{chap/background}
   \include{chap/implementation}
   \include{chap/verification}
   \include{chap/conclusion}
-
-  % \pagenumbering{gobble} % Don't number appendix?
   \begin{appendices}
-    \include{chap/appendix_listings}
-    % \raggedbottom % The figures/tables shouldn't have huge vspace between them
-    \include{chap/appendix_tables}
-    \include{chap/appendix_figures}
+    \include{chap/listings}
+    \include{chap/figures}
+    \include{chap/tables}
   \end{appendices}
 
 \end{thesis}
-
 \end{document}

@@ -5,12 +5,10 @@
     shr ebx, 0x18
     mov edi, ebx ; Now the ID is in EDI
 
-    ; Load the prepared AP GDT
+    ; Load the AP's prepared GDT and TSS
     mov ebx, [boot_ap_gdts - boot_ap + startup_address]
     mov eax, [ebx + edi * 0x4]
     lgdt [eax]
-
-    ; Load the TSS
     mov ax, 0x28
     ltr ax
 

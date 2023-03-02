@@ -1,0 +1,44 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+title Apic::startupSmp() for a single AP
+footer The Application Processor lifetime symbolizes the AP's expected online state for the xApic architecture.
+
+participant Apic
+participant GDT as "AP GDT"
+participant Stack as "AP Stack"
+participant 0x8000 as "AP Boot Routine"
+participant LocalApic
+participant smp_entry as "Application Processor"
+
+Apic -> GDT ++: Prepare AP GDT
+Apic -> Stack ++: Allocate AP stack
+
+group Prepare AP Boot Routine
+Apic -[hidden]> smp_entry
+    Apic -> 0x8000 ++: Allocate physical memory at 0x8000
+    Apic -> Apic: Initialize smp_boot variables
+    Apic -> 0x8000: Copy smp_boot to 0x8000
+end
+
+Apic -> Apic: Prepare warm reset
+
+group Universal Startup Algorithm
+    Apic -> LocalApic: Send INIT IPI
+    LocalApic -> smp_entry: INIT
+    ...10 ms...
+    Apic -> LocalApic: Send SIPI
+    LocalApic -> smp_entry ++: STARTUP
+    ...200 us...
+    Apic -> LocalApic: Send SIPI
+    LocalApic -> smp_entry: STARTUP
+    ...200 us...
+end
+
+Apic <- smp_entry: Initialize AP's local APIC
+Apic <- smp_entry: Initialize AP's APIC timer
+Apic <- smp_entry: Initialize AP's APIC error handler
+Apic <- smp_entry: Signal boot completion
+Apic -> 0x8000 !!: Free physical memory at 0x8000
+
+@enduml

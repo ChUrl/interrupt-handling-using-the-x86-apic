@@ -1,12 +1,12 @@
 // Excerpt from the "dispatch" function
-interruptDepthWrapper.inc();
-interruptService.sendEndOfInterrupt(slot); // Signal interrupt servicing
-asm volatile("sti");                       // Allow cascaded interrupts
+void InterruptDispatcher::dispatch(InterruptVector vec) {
+    interruptService.sendEndOfInterrupt(vec); // Signal interrupt servicing
+    asm volatile("sti");                      // Allow cascaded interrupts
 
-uint32_t size = handlerList->size();
-for (uint32_t i = 0; i < size; i++) {
-    handlerList->get(i)->trigger(frame);   // Call registered interrupt handlers
+    auto *handlerList = handlers[vec];
+    for (uint32_t i = 0; i < handlerList->size(); i++) {
+        handlerList->get(i)->trigger(); // Call registered interrupt handlers
+    }
+
+    asm volatile("cli");
 }
-
-asm volatile("cli");
-interruptDepthWrapper.dec();

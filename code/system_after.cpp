@@ -1,9 +1,12 @@
-// Excerpt from System::initializeSystem(). Located before interrupts
-// are enabled and any devices have registered their handlers.
-if (Apic::isSupported()) {
-    Apic::enable();
+// Excerpt from the "initializeSystem" function
+void System::initializeSystem() {
+    if (Apic::isSupported()) {
+        Apic::enable();
 
-    if (Apic::isSmpSupported()) {
-        Apic::startupSmp();
+        if (Apic::isSmpSupported()) {
+            Apic::startupSmp();
+        }
     }
+
+    Cpu::enableInterrupts();
 }
