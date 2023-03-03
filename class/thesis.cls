@@ -75,6 +75,8 @@
 \restylefloat{figure}
 \DeclareFontSeriesDefault[rm]{bf}{sbc} % beton Computer Concrete does not have bold font
 \pretocmd{\chapter}{\addtocontents{listings}{\protect\addvspace{10pt}}}{}{} % Group listings by chap
+\setlength{\cftfignumwidth}{3em} % Modify number width in LoF
+\setlength{\cfttabnumwidth}{3em} % Modify number width in LoT
 \sisetup{detect-all}
 % \renewcommand{\baselinestretch}{0.95}
 
@@ -483,6 +485,7 @@
   fonttitle=\footnotesize,
   adjusted title=\thetcbcounter\quad\texttt{#2},
   list entry=\thetcbcounter\quad\texttt{#2},
+  list text={\hspace*{1ex}#2}, % Chapter - Caption spacing in list of listings
   after title={%
     \hfill\setlength{\fboxsep}{2pt}
     \codelang{#3}

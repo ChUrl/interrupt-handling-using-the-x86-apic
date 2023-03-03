@@ -1,7 +1,7 @@
 \chapter{Background}
 \label{ch:background}
 
-In this section, important domain-specific concepts will be explained, to create the necessary foundation to follow \autoref{ch:implementation}.
+In this chapter, important domain-specific concepts will be explained, to create the necessary foundation to follow \autoref{ch:implementation}.
 Important terms present in the glossary are marked in \textbf{bold} on their first occurrence.
 
 \clearpage
@@ -346,26 +346,5 @@ Modern systems (and QEMU) do not support PIC Mode and thus do not have the IMCR\
 PC/AT compatibility is usually achieved in these systems by connecting two PICs to the first external interrupt input of the I/O APIC (see \autoref{fig:integratedapic}).
 
 Specifics on handling PC/AT compatible external interrupts follow in \autoref{subsec:ioapicpcat}.
-
-\section{Interrupt Handling in HhuOS}
-\label{sec:currenthhuos}
-
-In hhuOS, external interrupts are handled in two stages (see \autoref{subsec:apxcurrenthhuos} for code examples):
-
-\begin{enumerate}
-  \item After an IRQ is sent by an interrupt controller, the CPU looks up the interrupt handler address in the IDT\@.
-        In hhuOS, every IDT entry contains the address of the \code{dispatch} function, which is invoked with the vector number of the interrupt.
-  \item The \code{dispatch} function determines which interrupt handler will be called, based on the supplied vector number.
-        In hhuOS, interrupt handlers are implemented through the \code{InterruptHandler} interface, that provides the \code{trigger} function, which contains the interrupt handling routine.
-        To allow the \code{dispatch} function to find the desired interrupt handler, it has to be registered to a vector number by the OS beforehand.
-        This process is handled by the \code{plugin} function of the interrupt handler interface, which uses the interrupt dispatcher's \code{assign} function to register itself to the correct vector number.
-        HhuOS supports assigning multiple interrupt handlers to a single interrupt vector and cascading interrupts.
-\end{enumerate}
-
-To prevent the need of interacting with a specific interrupt controller implementation (e.g. \code{Pic} class) or the dispatcher, a system service (the \code{InterruptService}) is implemented to expose this functionality to other parts of the OS (it allows e.g.\ registering interrupt handlers or masking and unmasking interrupts).
-
-Currently, hhuOS utilizes the PIT to manage the global system time, which in turn is used to trigger hhuOS' preemptive round-robin scheduler (the \code{Scheduler} class).
-
-The PIT and other devices are initialized before the system entry point, in the \code{System::initializeSystem} function.
 
 \cleardoublepage

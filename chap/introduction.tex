@@ -13,8 +13,6 @@ With modern standards like multicore processors, peripheral extendability, great
 In this thesis, support for the \textquote{Advanced Programmable Interrupt Controller}, a modern, multiprocessing capable and widely used interrupt controller architecture, introduced by Intel for the x86 \textquote{i486} processor, will be implemented into hhuOS, \textquote{A small operating system for learning purposes}~\autocite{hhuos}.
 This support will cover a complete replacement of the older Programmable Interrupt Controller, introduction of an alternative timer -- a part of the APIC architecture -- for scheduling, and utilizing the APIC to boot multiprocessor systems.
 
-The following chapter explains important background concepts, in \autoref{ch:implementation} the required steps to use the APIC and their implementation are explained in general, \autoref{ch:verification} deals with the verification process of the developed software on emulated and real hardware, and \autoref{ch:conclusion} draws conclusions regarding the previous implementation and future improvements.
-
-Specific details on the code created during this thesis are given in \autoref{ch:listings}, separated from the main body.
+The following chapter explains important background concepts, \autoref{ch:interrupthandling} describes how to use the APIC to handle local and external interrupts in singlecore and multicore systems based on the \textquote{IA-32 Architecture Software Developers Manual}~\autocite{ia32}, in \autoref{ch:implementation} the implementation and integration into hhuOS are explained, \autoref{ch:verification} deals with the testing process of the developed software on emulated and real hardware, and \autoref{ch:conclusion} draws conclusions regarding the previous implementation and future improvements.
 
 \cleardoublepage

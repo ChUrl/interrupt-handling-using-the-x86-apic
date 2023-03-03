@@ -2,7 +2,6 @@
 void IoApic::initializeREDTBL() {
     // GSI2 belongs to the PIT in many systems
     auto gsi = GlobalSystemInterrupt(2);
-    IrqOverride *override = getOverride(gsi);
 
     REDTBLEntry redtblEntry{};
     redtblEntry.deliveryMode    = REDTBLEntry::DeliveryMode::FIXED;
@@ -10,6 +9,7 @@ void IoApic::initializeREDTBL() {
     redtblEntry.isMasked        = true;
     redtblEntry.destination     = LocalApic::getId(); // Redirect to BSP
 
+    IrqOverride *override = getOverride(gsi);
     if (override != nullptr) {
         // Apply any information provided by an interrupt override
         redtblEntry.vector      = override->source + 32;

@@ -13,7 +13,7 @@ void ApicTimer::trigger(const InterruptFrame &frame) {
         return;
     }
 
-    // Trigger preemption
+    // BSP triggers preemption
     if (time.toMilliseconds() % yieldInterval == 0) {
         System::getService<SchedulerService>().yield();
     }

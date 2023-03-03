@@ -1,4 +1,6 @@
 ; This section has to be compiled for 16-bit real mode
+[SECTION .text]
+bits 16
 boot_ap:
     ; Disable interrupts
     cli

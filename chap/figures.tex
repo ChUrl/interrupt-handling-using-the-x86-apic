@@ -22,5 +22,6 @@
 \end{figure}
 
 Note that this diagram is slightly misleading, because the application processor runs in parallel and is not susceptible to delays on the BSP\@.
+Initialization of the AP's local APIC follows the sequence described by \autoref{fig:apicenable} (starting at "Actual Component Initialization", excluding the I/O APIC, error handler instantiation and timer calibration).
 
 \cleardoublepage
