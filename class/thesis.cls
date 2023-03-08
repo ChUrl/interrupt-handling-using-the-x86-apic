@@ -69,6 +69,7 @@
 \RequirePackage{etoolbox}
 \RequirePackage{siunitx}
 \RequirePackage{setspace}
+\RequirePackage{pdfpages}
 
 % Options
 \floatstyle{boxed} % boxes around figures
@@ -337,7 +338,8 @@
   }%
   {}
 
-  \declaration
+  % \declaration
+  \includepdf[pages=-]{decl.pdf}
 }
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,7 +1,7 @@
 \chapter{Background}
 \label{ch:background}
 
-In this chapter, important domain-specific concepts will be explained, to create the necessary foundation to follow \autoref{ch:implementation}.
+In this chapter, important domain-specific concepts will be explained, to create the necessary foundation to follow \autoref{ch:interrupthandling} and \autoref{ch:implementation}.
 Important terms present in the glossary are marked in \textbf{bold} on their first occurrence.
 
 \clearpage
@@ -304,7 +304,7 @@ In comparison to the PIC, the external interrupt handling sequence changed:
   \item When the interrupt is being handled by the OS, it sends an EOI to the local APIC\footnote{
           In case of edge-triggered interrupts. For level-triggered interrupts see \autoref{subsec:ioapiceoi}.},
         \ which clears the corresponding bit in the ISR\@.
-        Note how the OS only interacts directly with the local APIC, not the I/O APIC.
+        Note how the OS only interacts directly with the local APIC, not the I/O APIC\@.
 \end{enumerate}
 
 To allow splitting the APIC architecture into local APICs of multiple CPU cores and I/O APICs, the individual components communicate over a bus.
@@ -334,12 +334,12 @@ A notable difference between xApic and x2Apic architectures is the register acce
 \label{sec:pcatcompat}
 
 For compatibility with older computer systems, two cascaded PICs are usually present in current computer systems (see \autoref{fig:discreteapic}/\autoref{fig:integratedapic}).
-The local APIC can be initialized to operate with these PICs instead of the I/O APIC, this is called \textbf{\gls{virtual wire mode}}.
-It is possible to operate with both the PIC and I/O APIC as controllers for external interrupts in \textit{mixed mode}, but this is very uncommon.
-Because the presence of a local APIC usually guarantees the presence of an I/O APIC, this thesis only focuses on interrupt handling with either two PICs (\textbf{\gls{pic mode}}), in case no APIC is available, or the full APIC architecture (local APIC and I/O APIC in \textbf{\gls{symmetric io mode}})\footnote{
-  For more information on operating modes, consult the \textquote{MultiProcessor Specification}~\autocite[sec.~3.6.2.1]{mpspec}.}.
+The local APIC can be initialized to operate with these PICs instead of the I/O APIC, this is called \textbf{\gls{virtual wire mode}}~\autocite[sec.~3.6.2.2]{mpspec}.
+It is possible to operate with both the PIC and I/O APIC as controllers for external interrupts in \textit{mixed mode}~\autocite[sec.~3.6.2.3]{mpspec}, but this is very uncommon.
+Because the presence of a local APIC usually guarantees the presence of an I/O APIC, this thesis only focuses on interrupt handling with either two PICs with a single processor (\textbf{\gls{pic mode}}~\autocite[sec.~3.6.2.1]{mpspec}), in case no APIC is available, or the full APIC architecture (local APIC and I/O APIC in \textbf{\gls{symmetric io mode}}~\cite[sec.~3.6.2.3]{mpspec}).
+Hardware following the MultiProcessor Specification must either implement PIC mode or virtual wire mode for PC/AT compatibility.
 
-To switch from PIC to symmetric I/O mode, some (older) hardware provides the \textbf{\gls{imcr}}, a special register that controls the physical connection of the PIC to the CPU\@.
+To switch from PIC mode (if implemented) to symmetric I/O mode, the \textbf{\gls{imcr}}, a special register which controls the physical connection of the PIC to the CPU, has to be configured.
 In the original discrete APIC architecture, the IMCR can choose if either the PIC or local APIC is connected to the CPU (see \autoref{fig:discreteapic}), since the xApic architecture the IMCR only connects or disconnects the PIC to the local APIC's LINT0 INTI (see \autoref{fig:integratedapic}).
 When the IMCR is set to connect the PIC, and the xApic \textquote{global enable/disable} flag is unset (see \autoref{subsec:lapicenable}), the system is functionally equivalent to an IA-32 CPU without an integrated local APIC~\autocite[sec.~3.11.4.3]{ia32}.
 Modern systems (and QEMU) do not support PIC Mode and thus do not have the IMCR\@.

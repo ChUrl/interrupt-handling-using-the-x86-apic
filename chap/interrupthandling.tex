@@ -56,20 +56,21 @@ After system power-up, the local APIC is in the following state~\autocite[sec.~3
 The initialization sequence consists of these steps, all performed before interrupt handling is enabled (see \autoref{fig:apicenable} for the full initialization sequence including all components):
 
 \begin{enumerate}
-  \item Enable symmetric I/O mode and set the APIC operating mode.
-  \item Allocate MMIO memory for register access.
+  \item Enable symmetric I/O mode.
+  \item Allocate memory for MMIO register access.
   \item Initialize the LVT and NMI\@.
   \item Initialize the SVR\@.
   \item Initialize the TPR\@.
-  \item Initialize the APIC timer and error handler.
-  \item Synchronize the arbitration ID\@.
+  \item Initialize the APIC timer (if used) and error handler.
+  \item Synchronize the arbitration IDs.
   \item Enable interrupts.
 \end{enumerate}
 
 \subsection{Enabling the Local APIC}
 \label{subsec:lapicenable}
 
-Because the system boots in PIC mode, \code{0x01} should be written to the IMCR~\autocite[sec.~3.6.2.1]{mpspec} to disconnect the PIC from the local APIC's LINT0 INTI (see \autoref{fig:integratedapic}, for the example implementation see \autoref{subsec:apxdisablepic}).
+Because the system boots in a PC/AT compatible mode (PIC mode or virtual wire mode), \code{0x01} should be written to the IMCR~\autocite[sec.~3.6.2.1]{mpspec} (in case it exists) to disconnect the PIC from the local APIC's LINT0 INTI (see \autoref{fig:integratedapic}).
+In case the IMCR is not available, all 16 PIC interrupts should be masked.
 
 To set the operating mode, it is first determined which modes are supported by executing the \code{cpuid}~\autocite{x86isa} instruction with \code{eax=1}: If bit 9 of the \code{edx} register is set, xApic mode is supported, if bit 21 of the \code{ecx} register is set, x2Apic mode is supported~\autocite[sec.~5.1.2]{cpuid}.
 If xApic mode is supported (if the local APIC is an integrated APIC), it will be in that mode already.
@@ -102,8 +103,6 @@ The IA-32 manual specifies a caching strategy of \textquote{strong uncachable}\f
 
 The address offsets (from the base address) for the local APIC registers are listed in the IA-32 manual~\autocite[sec.~3.11.4.1]{ia32} and in \autoref{tab:lapicregs}.
 
-For a short note on x2Apic register access, see \autoref{subsec:usingx2apic}.
-
 \subsection{Handling Local Interrupts}
 \label{subsec:lapiclvtinit}
 
@@ -127,7 +126,7 @@ Local interrupts can be configured to use different delivery modes (excerpt)~\au
 \end{itemize}
 
 Initially, all local interrupts are initialized to PC/AT defaults: Masked, edge-triggered, active-high and with \textit{fixed} delivery mode.
-Most importantly, the vector fields (bits 0:7 of each LVT register) are set to their corresponding interrupt vector (see \autoref{subsec:apxlvtinit} for an example implementation).
+Most importantly, the vector fields (bits 0:7 of each LVT register) are set to their corresponding interrupt vector.
 
 After default-initializing the local interrupts, LINT1 has to be configured separately (see \autoref{tab:lapicregslvtlint}), because it is the local APIC's NMI source\footnote{
   In older specifications~\autocite{mpspec}, LINT1 is defined as NMI source (see \autoref{fig:integratedapic}).
@@ -152,7 +151,7 @@ It makes sense to choose \code{0xFF} for the spurious interrupt vector, as on P6
   \label{fig:ia32apicsvr}
 \end{figure}
 
-Because the APIC's spurious interrupt has a dedicated interrupt vector (unlike the PIC's spurious interrupt), it can be ignored easily by registering a stub interrupt handler for the appropriate vector (see \autoref{subsec:apxsvr} for an implementation example).
+Because the APIC's spurious interrupt has a dedicated interrupt vector (unlike the PIC's spurious interrupt), it can be ignored easily by registering a stub interrupt handler for the appropriate vector.
 
 The final step to initialize the BSP's local APIC is to allow the local APIC to receive interrupts of all priorities.
 This is done by writing \code{0x00} to the TPR~\autocite[sec.~3.11.8.3]{ia32} (see \autoref{tab:lapicregstpr}).
@@ -218,17 +217,12 @@ To handle these cases, the local APIC provides the local error interrupt, whose 
 The ESR is a \textquote{write/read} register: Before reading a value from the ESR, it has to be written, which updates the ESR's contents to the error status since the last write.
 Writing the ESR also arms the local error interrupt, which does not happen automatically~\autocite[sec.~3.11.5.3]{ia32}.
 
-Enabling the local error interrupt is now as simple as enabling it in the local APIC's LVT and registering an interrupt handler for the appropriate vector (see \autoref{subsec:apxhandlingerror} for an example implementation).
-
-\subsection{Using x2Apic Mode}
-\label{subsec:usingx2apic}
-
-% TODO
+Enabling the local error interrupt is now as simple as enabling it in the local APIC's LVT and registering an interrupt handler for the appropriate vector.
 
 \section{I/O APIC}
 \label{sec:ioapicinit}
 
-To fully replace the PIC and handle external interrupts using the APIC, the I/O APIC, located in the system chipset, has to be initialized by setting its \textbf{\gls{redtbl}} registers~\autocite[sec.~9.5.8]{ich5} (see \autoref{tab:ioapicregsredtbl}).
+To fully replace the PIC and handle external interrupts using the APIC, the I/O APIC has to be initialized by setting its \textbf{\gls{redtbl}} registers~\autocite[sec.~9.5.8]{ich5} (see \autoref{tab:ioapicregsredtbl}).
 Like the local APIC's LVT, the REDTBL allows configuration of interrupt vectors, masking bits, interrupt delivery modes, pin polarities and trigger modes (see \autoref{subsec:lapiclvtinit}).
 
 Additionally, for external interrupts a destination and destination mode can be specified.
@@ -241,11 +235,11 @@ The other fields are set to ISA bus defaults\footnote{
   Edge-triggered, active-high.},
 \ with \textit{fixed} delivery mode, masked, and the corresponding interrupt vector.
 
-The I/O APIC does not have to be enabled explicitly, if the local APIC is enabled and the REDTBL is initialized correctly, external interrupts will be redirected to the local APIC and handled by the CPU\@.
+The I/O APIC does not have to be enabled explicitly: If the local APIC is enabled and the REDTBL is initialized correctly, external interrupts will be redirected to the local APIC and handled by the CPU\@.
 
 Unlike the local APIC's registers, the REDTBL registers are accessed indirectly: Two registers, the \textquote{Index} and \textquote{Data} register~\autocite[sec.~9.5.1]{ich5}, are mapped to the main memory and can be used analogous to the local APIC's registers.
 The MMIO base address can be parsed from the MADT (see \autoref{tab:madtioapic}).
-Writing an offset to the index register exposes an indirectly accessible I/O APIC register through the data register (see \autoref{subsec:iolistings} for an example implementation).
+Writing an offset to the index register exposes an indirectly accessible I/O APIC register through the data register.
 This indirect addressing scheme is useful, because the number of external interrupts an I/O APIC supports, and in turn the number of REDTBL registers, can vary\footnote{
   Intel's consumer \textbf{\glspl{ich}} always support a fixed amount of 24 external interrupts though~\autocite[sec.~9.5.7]{ich5}.}.
 
