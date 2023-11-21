@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Install Inkscape
-        run: apt install -y inkscape
+        run: apt-get update && apt-get install -y inkscape
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Build LaTeX document
