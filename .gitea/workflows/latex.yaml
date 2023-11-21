@@ -13,6 +13,7 @@ jobs:
           apt-get update
           apt-get install -y texlive-full
           apt-get install -y inkscape
+          apt-get install -y python3-pygments
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Build LaTeX document
