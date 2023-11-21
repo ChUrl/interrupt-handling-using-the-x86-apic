@@ -8,12 +8,10 @@ jobs:
   build-latex:
     runs-on: ubuntu-22.04
     steps:
-      - name: Install Inkscape
-        run: apt-get update && apt-get install -y inkscape
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Build LaTeX document
-        run: docker run --rm --volumes-from ${{ env.JOB_CONTAINER_NAME }} --workdir ${{ github.workspace }} ghcr.io/xu-cheng/texlive-full:latest latexmk -shell-escape -pdf thesis.tex
+        run: docker run --rm --volumes-from ${{ env.JOB_CONTAINER_NAME }} --workdir ${{ github.workspace }} --env INPUT_EXTRA_SYSTEM_PACKAGES=inkscape ghcr.io/xu-cheng/texlive-full:latest latexmk -shell-escape -pdf thesis.tex
       - name: Rename document
         run: mv thesis.pdf facial-animation-using-inverse-kinematics.pdf
       - name: Upload artifact
