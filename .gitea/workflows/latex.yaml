@@ -8,6 +8,8 @@ jobs:
   build-latex:
     runs-on: ubuntu-22.04
     steps:
+      - name: Install Inkscape
+        run: apt install -y inkscape
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Build LaTeX document
