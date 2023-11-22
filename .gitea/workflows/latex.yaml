@@ -17,7 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Build LaTeX document
-        run: docker run --volumes-from ${{ env.JOB_CONTAINER_NAME }} --workdir ${{ github.workspace }} gitlab.vps.chriphost.de/christoph/docker-texlive:latest latexmk -shell-escape -pdf thesis.tex
+        run: docker run --rm --volumes-from ${{ env.JOB_CONTAINER_NAME }} --workdir ${{ github.workspace }} gitea.vps.chriphost.de/christoph/docker-texlive:latest latexmk -shell-escape -pdf thesis.tex
         # run: latexmk -shell-escape -pdf thesis.tex
       - name: Upload artifact
         uses: actions/upload-artifact@v3
