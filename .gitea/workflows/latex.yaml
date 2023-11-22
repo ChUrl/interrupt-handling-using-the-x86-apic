@@ -8,19 +8,14 @@ jobs:
   build-latex:
     runs-on: ubuntu-22.04
     steps:
-      # - name: Setup TexLive
-      #   run: |
-      #     apt-get update
-      #     apt-get install -y texlive-full
-      #     apt-get install -y inkscape
-      #     apt-get install -y python3-pygments
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Build LaTeX document
         run: docker run --rm --volumes-from ${{ env.JOB_CONTAINER_NAME }} --workdir ${{ github.workspace }} gitea.vps.chriphost.de/christoph/docker-texlive:latest latexmk -shell-escape -pdf thesis.tex
-        # run: latexmk -shell-escape -pdf thesis.tex
+      - name: Rename artifact
+        run: mv thesis.pdf interrupt-handling-using-the-x86-apic.pdf
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: interrupt-handling-using-the-x86-apic.pdf
-          path: thesis.pdf
+          path: interrupt-handling-using-the-x86-apic.pdf
