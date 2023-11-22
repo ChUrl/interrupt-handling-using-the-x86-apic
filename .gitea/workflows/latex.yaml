@@ -8,17 +8,17 @@ jobs:
   build-latex:
     runs-on: ubuntu-22.04
     steps:
-      - name: Setup TexLive
-        run: |
-          apt-get update
-          apt-get install -y texlive-full
-          apt-get install -y inkscape
-          apt-get install -y python3-pygments
+      # - name: Setup TexLive
+      #   run: |
+      #     apt-get update
+      #     apt-get install -y texlive-full
+      #     apt-get install -y inkscape
+      #     apt-get install -y python3-pygments
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Build LaTeX document
-        # run: docker run --rm --volumes-from ${{ env.JOB_CONTAINER_NAME }} --workdir ${{ github.workspace }} ghcr.io/xu-cheng/texlive-full:latest latexmk -shell-escape -pdf thesis.tex
-        run: latexmk -shell-escape -pdf thesis.tex
+        run: docker run --volumes-from ${{ env.JOB_CONTAINER_NAME }} --workdir ${{ github.workspace }} gitlab.vps.chriphost.de/christoph/docker-texlive:latest latexmk -shell-escape -pdf thesis.tex
+        # run: latexmk -shell-escape -pdf thesis.tex
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
